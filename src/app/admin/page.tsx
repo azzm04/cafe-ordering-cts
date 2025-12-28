@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { formatWaktuID, timeAgoShort } from "@/lib/time";
 
 type TableRow = {
   id: string;
@@ -159,6 +160,7 @@ export default function AdminPage() {
     }
   };
 
+  
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -261,7 +263,16 @@ export default function AdminPage() {
           <div className="space-y-3">
             {preparing.map((o) => (
               <Card key={o.id} className="p-4 space-y-2">
-                <div className="font-medium">{o.order_number}</div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="font-semibold">{o.order_number}</div>
+
+                    <div className="text-xs opacity-70">
+                      {formatWaktuID(o.created_at)} •{" "}
+                      {timeAgoShort(o.created_at)}
+                    </div>
+                  </div>
+                </div>
 
                 <div className="text-sm opacity-70">
                   Meja {o.tables?.table_number ?? "-"} •{" "}
@@ -270,11 +281,22 @@ export default function AdminPage() {
                   <span className="font-medium">{o.order_status}</span>
                 </div>
 
-                <div className="pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => markServed(o.order_number)}
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={`/admin/print/kitchen/${o.order_number}`}
+                    target="_blank"
                   >
+                    <Button variant="secondary">Print Dapur (Makanan)</Button>
+                  </Link>
+
+                  <Link
+                    href={`/admin/print/bar/${o.order_number}`}
+                    target="_blank"
+                  >
+                    <Button variant="secondary">Print Bar (Minuman)</Button>
+                  </Link>
+
+                  <Button onClick={() => void markServed(o.order_number)}>
                     Tandai Sudah Dibuat / Diserahkan
                   </Button>
                 </div>
