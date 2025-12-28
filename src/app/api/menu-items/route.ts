@@ -1,20 +1,26 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import type { MenuItem } from "@/types";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const category_id = searchParams.get("category_id");
+  const categoryId = searchParams.get("category_id");
 
-  let query = supabaseServer
+  const q = supabaseServer
     .from("menu_items")
     .select("*")
     .eq("is_available", true)
-    .order("name", { ascending: true });
+    .order("created_at", { ascending: false });
 
-  if (category_id) query = query.eq("category_id", category_id);
+  const q2 = categoryId ? q.eq("category_id", categoryId) : q;
 
-  const { data, error } = await query;
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  const { data, error } = await q2.returns<MenuItem[]>();
 
-  return NextResponse.json({ menu_items: data });
+  if (error) {
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ items: data ?? [] });
 }

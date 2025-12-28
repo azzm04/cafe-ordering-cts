@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 type TableRow = {
   id: string;
@@ -52,7 +53,9 @@ export default function AdminPage() {
   const fetchOverview = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/overview?t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`/api/admin/overview?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       const json = (await res.json()) as unknown;
 
       if (!res.ok) throw new Error(safeMessage(json, "Gagal load dashboard"));
@@ -98,7 +101,9 @@ export default function AdminPage() {
   // 3) Aktif: served + belum completed
   const activeServed = useMemo(
     () =>
-      orders.filter((o) => o.order_status === "served" && o.completed_at === null),
+      orders.filter(
+        (o) => o.order_status === "served" && o.completed_at === null
+      ),
     [orders]
   );
 
@@ -144,7 +149,8 @@ export default function AdminPage() {
         body: JSON.stringify({ orderNumber }),
       });
       const json = (await res.json()) as unknown;
-      if (!res.ok) throw new Error(safeMessage(json, "Gagal menyelesaikan order"));
+      if (!res.ok)
+        throw new Error(safeMessage(json, "Gagal menyelesaikan order"));
 
       toast.success("Order selesai, meja dilepas");
       await fetchOverview();
@@ -161,13 +167,23 @@ export default function AdminPage() {
           <p className="text-sm opacity-70">Kelola meja & proses order.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={fetchOverview} disabled={loading}>
+          <Link href="/admin/menu">
+            <Button variant="outline">Kelola Menu</Button>
+          </Link>
+
+          <Button
+            variant="secondary"
+            onClick={fetchOverview}
+            disabled={loading}
+          >
             Refresh
           </Button>
+
           <Button
             variant="outline"
             onClick={() => {
-              clearAdminCookie();
+              document.cookie =
+                "cts_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
               location.href = "/admin/login";
             }}
           >
@@ -184,7 +200,11 @@ export default function AdminPage() {
             <Card key={t.id} className="p-3 space-y-2">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Meja {t.table_number}</span>
-                <Badge variant={t.status === "occupied" ? "destructive" : "secondary"}>
+                <Badge
+                  variant={
+                    t.status === "occupied" ? "destructive" : "secondary"
+                  }
+                >
                   {t.status}
                 </Badge>
               </div>
@@ -202,7 +222,9 @@ export default function AdminPage() {
         </div>
 
         {cashPending.length === 0 ? (
-          <p className="text-sm opacity-60">Tidak ada pembayaran tunai pending.</p>
+          <p className="text-sm opacity-60">
+            Tidak ada pembayaran tunai pending.
+          </p>
         ) : (
           <div className="space-y-3">
             {cashPending.map((o) => (
@@ -232,7 +254,9 @@ export default function AdminPage() {
         </div>
 
         {preparing.length === 0 ? (
-          <p className="text-sm opacity-60">Tidak ada order yang sedang dibuat.</p>
+          <p className="text-sm opacity-60">
+            Tidak ada order yang sedang dibuat.
+          </p>
         ) : (
           <div className="space-y-3">
             {preparing.map((o) => (
@@ -240,13 +264,17 @@ export default function AdminPage() {
                 <div className="font-medium">{o.order_number}</div>
 
                 <div className="text-sm opacity-70">
-                  Meja {o.tables?.table_number ?? "-"} • {o.payment_method ?? "midtrans"} •{" "}
+                  Meja {o.tables?.table_number ?? "-"} •{" "}
+                  {o.payment_method ?? "midtrans"} •{" "}
                   <span className="font-medium">{o.payment_status}</span> •{" "}
                   <span className="font-medium">{o.order_status}</span>
                 </div>
 
                 <div className="pt-2">
-                  <Button variant="outline" onClick={() => markServed(o.order_number)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => markServed(o.order_number)}
+                  >
                     Tandai Sudah Dibuat / Diserahkan
                   </Button>
                 </div>
@@ -272,13 +300,17 @@ export default function AdminPage() {
                 <div className="font-medium">{o.order_number}</div>
 
                 <div className="text-sm opacity-70">
-                  Meja {o.tables?.table_number ?? "-"} • {o.payment_method ?? "midtrans"} •{" "}
+                  Meja {o.tables?.table_number ?? "-"} •{" "}
+                  {o.payment_method ?? "midtrans"} •{" "}
                   <span className="font-medium">{o.payment_status}</span> •{" "}
                   <span className="font-medium">{o.order_status}</span>
                 </div>
 
                 <div className="pt-2">
-                  <Button variant="outline" onClick={() => completeOrder(o.order_number)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => completeOrder(o.order_number)}
+                  >
                     Selesaikan Pesanan (Release Meja)
                   </Button>
                 </div>
