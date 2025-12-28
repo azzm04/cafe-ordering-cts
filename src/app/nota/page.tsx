@@ -1,3 +1,4 @@
+// src/app/nota/page.tsx
 import { redirect } from "next/navigation";
 
 type SearchParams = {

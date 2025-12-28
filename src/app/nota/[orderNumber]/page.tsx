@@ -1,3 +1,4 @@
+// src/app/nota/[orderNumber]/page.tsx
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -120,7 +121,7 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
           <span className="text-lg font-bold">{formatRupiah(order.total_amount)}</span>
         </div>
 
-        <Link href="/menu">
+        <Link href="/pilih-meja">
           <Button className="w-full">Pesan Lagi</Button>
         </Link>
       </Card>

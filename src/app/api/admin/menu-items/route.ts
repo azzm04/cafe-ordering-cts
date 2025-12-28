@@ -1,19 +1,28 @@
+export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { MenuItem } from "@/types";
+import { supabaseServer } from "@/lib/supabase/server";
 
-type Row = MenuItem & {
-  categories?: { name: string } | null;
+type MenuRow = {
+  id: string;
+  category_id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  is_available: boolean;
+  created_at: string;
+  categories: { name: string } | null;
 };
 
 export async function GET() {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabaseServer
     .from("menu_items")
-    .select("*, categories(name)")
+    .select("id, category_id, name, description, price, image_url, is_available, created_at, categories(name)")
+    .eq("is_available", true)
     .order("created_at", { ascending: false })
-    .returns<Row[]>();
+    .returns<MenuRow[]>();
 
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 
