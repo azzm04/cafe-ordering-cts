@@ -1,75 +1,122 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { useCartStore } from "@/store/cartStore"
-import { CartItem } from "@/components/CartItem"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { Card } from "@/components/ui/card"
-import { formatRupiah } from "@/lib/utils"
+import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { useCartStore } from "@/store/cartStore";
+
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(value);
+}
 
 export default function KeranjangPage() {
-  const items = useCartStore((s) => s.items)
-  const tableNumber = useCartStore((s) => s.tableNumber)
-  const total = useCartStore((s) => s.getTotalAmount())
+  const router = useRouter();
 
-  if (!tableNumber) {
-    return (
-      <main className="min-h-screen bg-background p-6 flex items-center justify-center">
-        <Card className="p-6 space-y-4 max-w-md w-full text-center">
-          <p className="text-muted-foreground">Kamu belum memilih meja.</p>
-          <Link href="/pilih-meja">
-            <Button className="w-full font-semibold">Pilih Meja</Button>
-          </Link>
-        </Card>
-      </main>
-    )
-  }
+  const tableNumber = useCartStore((s) => s.tableNumber);
+  const items = useCartStore((s) => s.items);
+
+  const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
+  const updateNotes = useCartStore((s) => s.updateNotes);
+  const getTotalAmount = useCartStore((s) => s.getTotalAmount);
+
+  const total = useMemo(() => getTotalAmount(), [getTotalAmount, items]);
 
   return (
-    <main className="min-h-screen bg-background p-6 space-y-6">
-      {/* Header */}
-      <div className="max-w-2xl mx-auto">
-        <h2 className="text-3xl font-bold text-foreground">Keranjang</h2>
-        <p className="text-muted-foreground mt-1">Meja {tableNumber}</p>
+    <main className="mx-auto min-h-screen max-w-md p-6 space-y-4">
+      {/* Header + Back */}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Keranjang</h1>
+          <p className="text-sm opacity-80">Meja {tableNumber ?? "-"}</p>
+        </div>
+
+        <Button
+          variant="secondary"
+          onClick={() => {
+            // fallback yang aman
+            if (window.history.length > 1) router.back();
+            else router.push("/menu");
+          }}
+        >
+          Kembali
+        </Button>
       </div>
 
-      {/* Content */}
-      <div className="max-w-2xl mx-auto">
-        {items.length === 0 ? (
-          <Card className="p-8 space-y-4 text-center">
-            <p className="text-muted-foreground">Keranjang kosong.</p>
-            <Link href="/menu">
-              <Button variant="outline" className="w-full font-semibold bg-transparent">
-                Balik ke Menu
-              </Button>
-            </Link>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {/* Items */}
-            <div className="space-y-3">
-              {items.map((it) => (
-                <CartItem key={it.id} item={it} />
-              ))}
-            </div>
+      {items.length === 0 ? (
+        <div className="rounded-xl border p-4">
+          <p className="text-sm opacity-80">Keranjang kosong.</p>
+          <div className="mt-3">
+            <Button onClick={() => router.push("/menu")}>Ke Menu</Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {items.map((it) => (
+            <div key={it.id} className="rounded-xl border p-4 space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="font-semibold">{it.name}</p>
+                  <p className="text-sm opacity-80">
+                    {formatRupiah(it.price)} × {it.quantity} ={" "}
+                    {formatRupiah(it.price * it.quantity)}
+                  </p>
+                </div>
 
-            <Separator className="my-2" />
-
-            {/* Total */}
-            <Card className="p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="text-muted-foreground font-medium">Total</div>
-                <div className="text-2xl font-bold text-primary">{formatRupiah(total)}</div>
+                <Button variant="destructive" onClick={() => removeItem(it.id)}>
+                  Hapus
+                </Button>
               </div>
 
-              <Link href="/pembayaran" className="block">
-                <Button className="w-full font-semibold h-11">Lanjut Pembayaran</Button>
-              </Link>
-            </Card>
+              {/* Qty */}
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="secondary"
+                  onClick={() => updateQuantity(it.id, it.quantity - 1)}
+                  disabled={it.quantity <= 1}
+                >
+                  -
+                </Button>
+
+                <div className="w-8 text-center font-medium">{it.quantity}</div>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => updateQuantity(it.id, it.quantity + 1)}
+                >
+                  +
+                </Button>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <p className="text-sm opacity-80">Catatan (opsional)</p>
+                <textarea
+                  className="w-full rounded-lg border p-3 text-sm outline-none"
+                  placeholder="Contoh: pedas ya / tanpa es"
+                  value={it.notes ?? ""}
+                  onChange={(e) => updateNotes(it.id, e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+          ))}
+
+          {/* Total */}
+          <div className="rounded-xl border p-4 flex items-center justify-between">
+            <p className="font-medium">Total</p>
+            <p className="text-xl font-bold">{formatRupiah(total)}</p>
           </div>
-        )}
-      </div>
+
+          <Button className="w-full" onClick={() => router.push("/pembayaran")}>
+            Lanjut Pembayaran
+          </Button>
+        </>
+      )}
     </main>
-  )
+  );
 }
