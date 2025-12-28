@@ -30,7 +30,7 @@ type MenuItemEnriched = Omit<MenuItemRaw, 'categories'> & {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const categoryId = searchParams.get("category_id");
+  const parentCategoryId = searchParams.get("category_id"); // Ini sekarang parent category ID
   const q = searchParams.get("q");
   const variant = searchParams.get("variant");
 
@@ -48,7 +48,23 @@ export async function GET(req: Request) {
     .eq("is_available", true)
     .order("created_at", { ascending: false });
 
-  if (categoryId) query = query.eq("category_id", categoryId);
+  // ✅ Filter berdasarkan parent category (Makanan/Minuman)
+  if (parentCategoryId) {
+    // Ambil semua child categories yang parent_id-nya sesuai
+    const { data: childCategories } = await supabaseServer
+      .from("categories")
+      .select("id")
+      .eq("parent_id", parentCategoryId);
+
+    if (childCategories && childCategories.length > 0) {
+      const childIds = childCategories.map((c) => c.id);
+      query = query.in("category_id", childIds);
+    } else {
+      // Jika tidak ada child, return kosong
+      return NextResponse.json({ items: [] });
+    }
+  }
+
   if (variant) query = query.eq("variant_group", variant);
   if (q && q.trim().length > 0) query = query.ilike("name", `%${q.trim()}%`);
 

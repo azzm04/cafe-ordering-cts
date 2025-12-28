@@ -14,6 +14,7 @@ export interface MenuItem {
   image_url?: string;
   is_available: boolean;
   created_at: string;
+  variant_group?: string | null; 
 }
 
 export interface Table {
