@@ -1,0 +1,126 @@
+export const runtime = "nodejs";
+
+import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/supabase/server";
+
+type CashOrderBody = {
+  tableNumber: number;
+  items: Array<{
+    menu_item_id: string;
+    quantity: number;
+    price: number;
+    notes?: string;
+  }>;
+};
+
+function generateOrderNumber() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const y = d.getFullYear();
+  const m = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mm = pad(d.getMinutes());
+  const ss = pad(d.getSeconds());
+  const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
+  return `CTS-${y}${m}${day}-${hh}${mm}${ss}-${rand}`;
+}
+
+function getErrorMessage(err: unknown) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return "Unknown error";
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = (await req.json()) as CashOrderBody;
+
+    if (!body.tableNumber || body.items.length === 0) {
+      return NextResponse.json(
+        { message: "tableNumber & items required" },
+        { status: 400 }
+      );
+    }
+
+    const { data: table, error: tableErr } = await supabaseServer
+      .from("tables")
+      .select("id, status")
+      .eq("table_number", body.tableNumber)
+      .single();
+
+    if (tableErr || !table)
+      return NextResponse.json({ message: "Table not found" }, { status: 404 });
+    if (table.status !== "available")
+      return NextResponse.json(
+        { message: "Table not available" },
+        { status: 409 }
+      );
+
+    const total = body.items.reduce(
+      (acc, it) => acc + it.price * it.quantity,
+      0
+    );
+    const orderNumber = generateOrderNumber();
+
+    const { data: order, error: orderErr } = await supabaseServer
+      .from("orders")
+      .insert({
+        table_id: table.id,
+        order_number: orderNumber,
+        total_amount: total,
+        payment_status: "pending",
+        payment_method: "cash",
+        midtrans_order_id: null,
+        midtrans_transaction_id: null,
+        completed_at: null,
+        order_status: "received",
+      })
+      .select("id, order_number")
+      .single();
+
+    if (orderErr || !order) {
+      return NextResponse.json(
+        { message: orderErr?.message ?? "Create order failed" },
+        { status: 500 }
+      );
+    }
+
+    const itemsPayload = body.items.map((it) => ({
+      order_id: order.id,
+      menu_item_id: it.menu_item_id,
+      quantity: it.quantity,
+      price: it.price,
+      subtotal: it.price * it.quantity,
+      notes: it.notes ?? null,
+    }));
+
+    const { error: itemsErr } = await supabaseServer
+      .from("order_items")
+      .insert(itemsPayload);
+    if (itemsErr)
+      return NextResponse.json({ message: itemsErr.message }, { status: 500 });
+
+    // occupy table
+    const { error: occErr } = await supabaseServer
+      .from("tables")
+      .update({ status: "occupied" })
+      .eq("id", table.id);
+    if (occErr)
+      return NextResponse.json(
+        { message: "Failed to occupy table", details: occErr.message },
+        { status: 500 }
+      );
+
+    return NextResponse.json({ orderNumber: order.order_number });
+  } catch (e: unknown) {
+    return NextResponse.json(
+      { message: "Server crash", details: getErrorMessage(e) },
+      { status: 500 }
+    );
+  }
+}
