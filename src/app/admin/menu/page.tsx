@@ -29,6 +29,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Category = { id: string; name: string };
 type MenuItemRow = {
@@ -67,18 +77,33 @@ export default function AdminMenuPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [openCreate, setOpenCreate] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
 
   const createForm = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { categoryId: "", name: "", description: "", price: 0, imageUrl: "", isAvailable: true },
+    defaultValues: {
+      categoryId: "",
+      name: "",
+      description: "",
+      price: 0,
+      imageUrl: "",
+      isAvailable: true,
+    },
   });
 
   const editForm = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { id: "", categoryId: "", name: "", description: "", price: 0, imageUrl: "", isAvailable: true },
+    defaultValues: {
+      id: "",
+      categoryId: "",
+      name: "",
+      description: "",
+      price: 0,
+      imageUrl: "",
+      isAvailable: true,
+    },
   });
 
   const filtered = useMemo(() => {
@@ -101,8 +126,10 @@ export default function AdminMenuPage() {
       const textCat = await resCat.text();
       const jsonCat: unknown = textCat ? JSON.parse(textCat) : null;
 
-      if (!resMenu.ok) throw new Error(safeMessage(jsonMenu, "Gagal load menu"));
-      if (!resCat.ok) throw new Error(safeMessage(jsonCat, "Gagal load kategori"));
+      if (!resMenu.ok)
+        throw new Error(safeMessage(jsonMenu, "Gagal load menu"));
+      if (!resCat.ok)
+        throw new Error(safeMessage(jsonCat, "Gagal load kategori"));
 
       const menuData = jsonMenu as { items: MenuItemRow[] };
       const catData = jsonCat as { categories: Category[] };
@@ -144,7 +171,14 @@ export default function AdminMenuPage() {
 
       toast.success("Menu berhasil dibuat");
       setOpenCreate(false);
-      createForm.reset({ categoryId: "", name: "", description: "", price: 0, imageUrl: "", isAvailable: true });
+      createForm.reset({
+        categoryId: "",
+        name: "",
+        description: "",
+        price: 0,
+        imageUrl: "",
+        isAvailable: true,
+      });
       await load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Error");
@@ -201,26 +235,33 @@ export default function AdminMenuPage() {
     }
   };
 
-  const deleteMenu = async (id: string) => {
-    const ok = confirm("Yakin hapus menu ini?");
-    if (!ok) return;
+  // 1. Fungsi ini dipanggil saat tombol "Hapus" di tabel diklik
+  const openDeleteDialog = (id: string) => {
+    setDeleteId(id); // Ini akan memicu dialog terbuka
+  };
+
+  // 2. Fungsi ini dipanggil saat tombol "Continue/Hapus" di Dialog diklik
+  const executeDelete = async () => {
+    if (!deleteId) return;
 
     try {
       const res = await fetch("/api/admin/menu-items/delete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ id: deleteId }),
+        cache: "no-store",
       });
 
       const text = await res.text();
-      const json: unknown = text ? JSON.parse(text) : null;
-
-      if (!res.ok) throw new Error(safeMessage(json, "Gagal hapus menu"));
+      const json = text ? (JSON.parse(text) as { message?: string }) : {};
+      if (!res.ok) throw new Error(json.message ?? "Gagal hapus menu");
 
       toast.success("Menu berhasil dihapus");
-      await load();
+      await load(); // refresh list
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Error");
+      toast.error(e instanceof Error ? e.message : "Error hapus");
+    } finally {
+      setDeleteId(null); // Tutup dialog
     }
   };
 
@@ -243,7 +284,8 @@ export default function AdminMenuPage() {
       const text = await res.text();
       const json: unknown = text ? JSON.parse(text) : null;
 
-      if (!res.ok) throw new Error(safeMessage(json, "Gagal update availability"));
+      if (!res.ok)
+        throw new Error(safeMessage(json, "Gagal update availability"));
 
       toast.success(next ? "Menu diaktifkan" : "Menu diset habis");
       await load();
@@ -257,7 +299,9 @@ export default function AdminMenuPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Kelola Menu</h1>
-          <p className="text-sm opacity-70">Create, edit, delete, dan set habis menu.</p>
+          <p className="text-sm opacity-70">
+            Create, edit, delete, dan set habis menu.
+          </p>
         </div>
 
         <div className="flex gap-2">
@@ -286,7 +330,9 @@ export default function AdminMenuPage() {
                   <Label>Kategori</Label>
                   <Select
                     value={createForm.watch("categoryId")}
-                    onValueChange={(val) => createForm.setValue("categoryId", val)}
+                    onValueChange={(val) =>
+                      createForm.setValue("categoryId", val)
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih kategori" />
@@ -299,22 +345,28 @@ export default function AdminMenuPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-red-500">{createForm.formState.errors.categoryId?.message}</p>
+                  <p className="text-xs text-red-500">
+                    {createForm.formState.errors.categoryId?.message}
+                  </p>
                 </div>
 
                 <div className="space-y-1">
                   <Label>Nama</Label>
                   <Input {...createForm.register("name")} />
-                  <p className="text-xs text-red-500">{createForm.formState.errors.name?.message}</p>
+                  <p className="text-xs text-red-500">
+                    {createForm.formState.errors.name?.message}
+                  </p>
                 </div>
 
                 <div className="space-y-1">
                   <Label>Harga</Label>
-                  <Input 
-                    type="number" 
-                    {...createForm.register("price", { valueAsNumber: true })} 
+                  <Input
+                    type="number"
+                    {...createForm.register("price", { valueAsNumber: true })}
                   />
-                  <p className="text-xs text-red-500">{createForm.formState.errors.price?.message}</p>
+                  <p className="text-xs text-red-500">
+                    {createForm.formState.errors.price?.message}
+                  </p>
                 </div>
 
                 <div className="space-y-1">
@@ -330,7 +382,9 @@ export default function AdminMenuPage() {
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={createForm.watch("isAvailable")}
-                    onCheckedChange={(v) => createForm.setValue("isAvailable", v)}
+                    onCheckedChange={(v) =>
+                      createForm.setValue("isAvailable", v)
+                    }
                   />
                   <span className="text-sm">Tersedia</span>
                 </div>
@@ -345,7 +399,11 @@ export default function AdminMenuPage() {
       </div>
 
       <Card className="p-4 space-y-3">
-        <Input placeholder="Cari menu..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input
+          placeholder="Cari menu..."
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
 
         {loading ? (
           <p className="text-sm opacity-70">Loading...</p>
@@ -354,31 +412,47 @@ export default function AdminMenuPage() {
         ) : (
           <div className="space-y-3">
             {filtered.map((it) => (
-              <div key={it.id} className="flex items-center justify-between gap-3 border-b pb-3">
+              <div
+                key={it.id}
+                className="flex items-center justify-between gap-3 border-b pb-3"
+              >
                 <div className="space-y-1">
                   <div className="font-medium">{it.name}</div>
                   <div className="text-xs opacity-70">
-                    {it.categories?.name ?? "-"} • Rp {Number(it.price).toLocaleString("id-ID")}
+                    {it.categories?.name ?? "-"} • Rp{" "}
+                    {Number(it.price).toLocaleString("id-ID")}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Badge variant={it.is_available ? "secondary" : "destructive"}>
+                  <Badge
+                    variant={it.is_available ? "secondary" : "destructive"}
+                  >
                     {it.is_available ? "available" : "sold out"}
                   </Badge>
 
                   {it.is_available ? (
-                    <Button variant="outline" onClick={() => void toggleAvailability(it.id, false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => void toggleAvailability(it.id, false)}
+                    >
                       Set Habis
                     </Button>
                   ) : (
-                    <Button onClick={() => void toggleAvailability(it.id, true)}>Aktifkan</Button>
+                    <Button
+                      onClick={() => void toggleAvailability(it.id, true)}
+                    >
+                      Aktifkan
+                    </Button>
                   )}
 
                   <Button variant="outline" onClick={() => openEditDialog(it)}>
                     Edit
                   </Button>
-                  <Button variant="destructive" onClick={() => void deleteMenu(it.id)}>
+                  <Button
+                    variant="destructive"
+                    onClick={() => openDeleteDialog(it.id)}
+                  >
                     Hapus
                   </Button>
                 </div>
@@ -395,7 +469,10 @@ export default function AdminMenuPage() {
             <DialogTitle>Edit Menu</DialogTitle>
           </DialogHeader>
 
-          <form className="space-y-3" onSubmit={editForm.handleSubmit(updateMenu)}>
+          <form
+            className="space-y-3"
+            onSubmit={editForm.handleSubmit(updateMenu)}
+          >
             <div className="space-y-1">
               <Label>Kategori</Label>
               <Select
@@ -413,22 +490,28 @@ export default function AdminMenuPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-red-500">{editForm.formState.errors.categoryId?.message}</p>
+              <p className="text-xs text-red-500">
+                {editForm.formState.errors.categoryId?.message}
+              </p>
             </div>
 
             <div className="space-y-1">
               <Label>Nama</Label>
               <Input {...editForm.register("name")} />
-              <p className="text-xs text-red-500">{editForm.formState.errors.name?.message}</p>
+              <p className="text-xs text-red-500">
+                {editForm.formState.errors.name?.message}
+              </p>
             </div>
 
             <div className="space-y-1">
               <Label>Harga</Label>
-              <Input 
-                type="number" 
-                {...editForm.register("price", { valueAsNumber: true })} 
+              <Input
+                type="number"
+                {...editForm.register("price", { valueAsNumber: true })}
               />
-              <p className="text-xs text-red-500">{editForm.formState.errors.price?.message}</p>
+              <p className="text-xs text-red-500">
+                {editForm.formState.errors.price?.message}
+              </p>
             </div>
 
             <div className="space-y-1">
@@ -455,6 +538,33 @@ export default function AdminMenuPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* DELETE CONFIRMATION DIALOG */}
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Apakah anda yakin menghapus menu ini?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tindakan ini tidak bisa dibatalkan. Jika menu sudah pernah
+              dipesan, menu akan diarsipkan agar riwayat transaksi tetap aman.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={executeDelete}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Hapus Sekarang
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }
