@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -16,15 +19,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: "Body JSON tidak valid" }, { status: 400 });
   }
 
-  if (!body.id) {
-    return NextResponse.json({ message: "id wajib diisi" }, { status: 400 });
-  }
+  const id = (body.id ?? "").trim();
+  if (!id) return NextResponse.json({ message: "id wajib diisi" }, { status: 400 });
 
-  // cek apakah menu item sudah dipakai di order_items
   const used = await supabaseAdmin
     .from("order_items")
     .select("id")
-    .eq("menu_item_id", body.id)
+    .eq("menu_item_id", id)
     .limit(1);
 
   if (used.error) {
@@ -37,11 +38,10 @@ export async function POST(req: Request) {
   const isUsed = (used.data?.length ?? 0) > 0;
 
   if (isUsed) {
-    // ✅ soft delete: set tidak tersedia
     const upd = await supabaseAdmin
       .from("menu_items")
       .update({ is_available: false })
-      .eq("id", body.id)
+      .eq("id", id)
       .select("id")
       .single();
 
@@ -59,10 +59,9 @@ export async function POST(req: Request) {
     });
   }
 
-  // ✅ hard delete kalau belum pernah dipakai
-  const del = await supabaseAdmin.from("menu_items").delete().eq("id", body.id);
-
+  const del = await supabaseAdmin.from("menu_items").delete().eq("id", id);
   const err = del.error as PostgrestError | null;
+
   if (err) {
     return NextResponse.json({ message: "Gagal hapus menu", details: err.message }, { status: 500 });
   }

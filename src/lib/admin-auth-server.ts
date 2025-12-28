@@ -1,26 +1,23 @@
-// src/lib/admin-auth-server.ts
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getAdminCookieName, getExpectedCookieValue } from "@/lib/admin-auth";
 
-export async function isAdminAuthed(): Promise<boolean> {
-  const store = await cookies(); // ✅ penting: await
+export async function requireAdmin(): Promise<NextResponse | null> {
+  const cookieStore = await cookies(); // <-- penting (karena Promise)
   const cookieName = getAdminCookieName();
-  const value = store.get(cookieName)?.value ?? "";
 
   const expected = await getExpectedCookieValue();
-  if (!expected) return false;
+  if (!expected) {
+    return NextResponse.json(
+      { message: "ADMIN_PIN belum diset di env" },
+      { status: 500 }
+    );
+  }
 
-  return value === expected;
-}
+  const current = cookieStore.get(cookieName)?.value ?? "";
+  if (current !== expected) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
 
-/**
- * Dipakai di route handler admin:
- *   if (!(await requireAdmin())) return NextResponse.json(..., {status:401})
- */
-export async function requireAdmin(): Promise<NextResponse | null> {
-  const ok = await isAdminAuthed();
-  if (ok) return null;
-
-  return NextResponse.json({ message: "Unauthorized (admin only)" }, { status: 401 });
+  return null;
 }
