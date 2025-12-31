@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ChevronDown, Search, RefreshCw } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
-import { formatRupiah } from "@/lib/utils";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 
-type MenuItemWithCategory = {
+
+type MenuItemRow = {
   id: string;
   category_id: string;
   name: string;
@@ -17,139 +20,186 @@ type MenuItemWithCategory = {
   image_url: string | null;
   is_available: boolean;
   created_at: string;
-  variant_group?: string | null;
-  categories: {
-    name: string;
-    parent_id: string | null;
-    parent_category?: {
-      name: string;
-    } | null;
-  } | null;
+  variant_group: string | null;
 };
 
-type Tab = "Makanan" | "Minuman";
+type MenuItemsResponse = {
+  items: MenuItemRow[];
+  message?: string;
+};
 
-// ✅ Hardcoded parent category IDs - cek di database Anda!
-const PARENT_CATEGORY_ID = {
-  Makanan: "f3274eb8-d206-4591-a1f5-855981748ee0",
-  Minuman: "e045633e-b497-4169-9cc3-69aca2a42f31",
+const CATEGORY = {
+  makanan: "f3274eb8-d206-4591-a1f5-855981748ee0",
+  minuman: "e045633e-b497-4169-9cc3-69aca2a42f31",
 } as const;
 
+type TabKey = keyof typeof CATEGORY;
+
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 export default function MenuPage() {
+  const router = useRouter();
+
   const tableNumber = useCartStore((s) => s.tableNumber);
   const addItem = useCartStore((s) => s.addItem);
   const itemCount = useCartStore((s) => s.getItemCount());
 
-  const [tab, setTab] = useState<Tab>("Makanan");
-  const [items, setItems] = useState<MenuItemWithCategory[]>([]);
-  const [allItems, setAllItems] = useState<MenuItemWithCategory[]>([]); // ✅ Simpan semua items
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabKey>("makanan");
+  const [query, setQuery] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [items, setItems] = useState<MenuItemRow[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  const [q, setQ] = useState("");
-  const [selectedVariant, setSelectedVariant] = useState("");
+  useEffect(() => {
+    if (tableNumber == null) {
+      router.replace("/pilih-meja");
+    }
+  }, [tableNumber, router]);
 
-  const categoryId = PARENT_CATEGORY_ID[tab];
-
-  async function loadMenu(params?: { search?: string; variant?: string }) {
+  const loadMenu = async () => {
     setLoading(true);
     try {
-      const sp = new URLSearchParams();
-      sp.set("category_id", categoryId);
-      if (params?.search && params.search.trim().length > 0) {
-        sp.set("q", params.search.trim());
-      }
-      if (params?.variant && params.variant.trim().length > 0) {
-        sp.set("variant", params.variant.trim());
-      }
+      const categoryId = CATEGORY[activeTab];
+      const url = new URL("/api/menu-items", window.location.origin);
+      url.searchParams.set("category_id", categoryId);
+      if (query.trim().length > 0) url.searchParams.set("q", query.trim());
 
-      const res = await fetch(`/api/menu-items?${sp.toString()}`, { 
-        cache: "no-store" 
+      const res = await fetch(url.toString(), {
+        method: "GET",
+        cache: "no-store",
+        headers: { "cache-control": "no-cache" },
       });
-      
-      const json: unknown = await res.json();
+
+      const json = (await res.json()) as MenuItemsResponse;
 
       if (!res.ok) {
-        const msg =
-          typeof json === "object" && json !== null && "message" in json
-            ? String((json as { message: unknown }).message)
-            : "Gagal ambil menu";
-        throw new Error(msg);
+        throw new Error(json.message ?? "Gagal ambil menu");
       }
 
-      const payload = json as { items: MenuItemWithCategory[] };
-      const loadedItems = payload.items ?? [];
-      
+      const loadedItems = Array.isArray(json.items) ? json.items : [];
       setItems(loadedItems);
       
-      // ✅ Simpan semua items jika tidak ada filter (untuk generate chip)
-      if (!params?.search && !params?.variant) {
-        setAllItems(loadedItems);
+      // Auto expand first group
+      if (loadedItems.length > 0 && expandedGroups.size === 0) {
+        const firstGroup = (loadedItems[0].variant_group ?? "Lainnya").trim() || "Lainnya";
+        setExpandedGroups(new Set([firstGroup]));
       }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Error");
+      const message = e instanceof Error ? e.message : "Terjadi error";
+      toast.error(message);
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  // Reload saat ganti tab
   useEffect(() => {
-    setSelectedVariant("");
-    setQ("");
-    void loadMenu({ search: "", variant: "" });
+    setExpandedGroups(new Set()); // Reset expanded groups saat ganti tab
+    loadMenu();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [activeTab]);
 
-  // Reload saat search / variant berubah (debounce)
+  // Auto reload setelah stop ngetik (debounce)
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      void loadMenu({ search: q, variant: selectedVariant });
-    }, 250);
-    return () => clearTimeout(timeout);
+    const t = window.setTimeout(() => {
+      loadMenu();
+    }, 350);
+    return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, selectedVariant]);
+  }, [query]);
 
-  // ✅ Ambil daftar variant_group dari SEMUA items (bukan yang ter-filter)
-  const variantGroups = useMemo(() => {
-    const set = new Set<string>();
-    for (const item of allItems) {
-      if (item.variant_group && item.variant_group.trim().length > 0) {
-        set.add(item.variant_group.trim());
-      }
+  useEffect(() => {
+    // sekali load awal
+    loadMenu();
+
+    // realtime subscribe
+    const channel = supabaseBrowser
+      .channel("realtime-menu-items")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "menu_items" },
+        () => {
+          // setiap ada insert/update/delete -> refresh list
+          loadMenu();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabaseBrowser.removeChannel(channel);
+    };
+  }, []);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, MenuItemRow[]>();
+    for (const it of items) {
+      const key = (it.variant_group ?? "Lainnya").trim() || "Lainnya";
+      const arr = map.get(key) ?? [];
+      arr.push(it);
+      map.set(key, arr);
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [allItems]);
+    return Array.from(map.entries()).map(([groupName, groupItems]) => ({
+      groupName,
+      groupItems,
+    }));
+  }, [items]);
+
+  const toggleGroup = (groupName: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupName)) {
+        next.delete(groupName);
+      } else {
+        next.add(groupName);
+      }
+      return next;
+    });
+  };
+
+  // Kalau tableNumber null, UI tidak perlu render berat
+  if (tableNumber == null) {
+    return (
+      <main className="mx-auto min-h-screen max-w-md p-6">
+        <p className="text-sm opacity-80">Mengarahkan ke pilih meja...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto min-h-screen max-w-md p-6 space-y-4">
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Menu</h1>
-          <p className="text-sm opacity-80">Meja {tableNumber ?? "-"}</p>
+          <p className="text-sm text-muted-foreground">Meja {tableNumber}</p>
         </div>
 
-        <Link href="/keranjang">
-          <Button variant="secondary">Keranjang ({itemCount})</Button>
-        </Link>
+        <Button onClick={() => router.push("/keranjang")} className="shrink-0">
+          Keranjang ({itemCount})
+        </Button>
       </header>
 
-      {/* Tabs utama: Makanan / Minuman */}
+      {/* Tabs */}
       <div className="rounded-xl bg-muted p-1 flex">
         <button
           type="button"
-          onClick={() => setTab("Makanan")}
-          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
-            tab === "Makanan" ? "bg-background shadow" : "opacity-80 hover:opacity-100"
+          onClick={() => setActiveTab("makanan")}
+          className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+            activeTab === "makanan" ? "bg-background shadow" : "opacity-70 hover:opacity-100"
           }`}
         >
           Makanan
         </button>
         <button
           type="button"
-          onClick={() => setTab("Minuman")}
-          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
-            tab === "Minuman" ? "bg-background shadow" : "opacity-80 hover:opacity-100"
+          onClick={() => setActiveTab("minuman")}
+          className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
+            activeTab === "minuman" ? "bg-background shadow" : "opacity-70 hover:opacity-100"
           }`}
         >
           Minuman
@@ -157,81 +207,143 @@ export default function MenuPage() {
       </div>
 
       {/* Search */}
-      <Input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Cari menu..."
-      />
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Cari menu..."
+          className="pl-10"
+        />
+      </div>
 
-      {/* ✅ Chip Sub-kategori (variant_group) */}
-      {variantGroups.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          <Button
-            variant={selectedVariant === "" ? "default" : "secondary"}
-            size="sm"
-            onClick={() => setSelectedVariant("")}
-          >
-            Semua
-          </Button>
+      <div className="flex justify-end">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={loadMenu} 
+          disabled={loading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+      </div>
 
-          {variantGroups.map((vg) => (
-            <Button
-              key={vg}
-              variant={selectedVariant === vg ? "default" : "secondary"}
-              size="sm"
-              onClick={() => setSelectedVariant(vg)}
-            >
-              {vg}
-            </Button>
-          ))}
-        </div>
-      )}
-
-      {/* List Menu */}
       {loading ? (
-        <p className="text-sm opacity-70">Loading menu...</p>
-      ) : items.length === 0 ? (
-        <p className="text-sm opacity-70">Menu kosong / tidak tersedia.</p>
+        <div className="text-center py-8">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
+          <p className="mt-2 text-sm text-muted-foreground">Loading menu...</p>
+        </div>
+      ) : grouped.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-sm text-muted-foreground">Menu kosong / tidak tersedia.</p>
+        </div>
       ) : (
-        <div className="space-y-3">
-          {items.map((it) => (
-            <div key={it.id} className="rounded-xl border p-4 space-y-2">
-              <div className="space-y-1">
-                <div className="text-base font-semibold">{it.name}</div>
-                
-                {it.description && (
-                  <div className="text-sm opacity-70">{it.description}</div>
-                )}
-                
-                {it.variant_group && (
-                  <div className="text-xs text-muted-foreground">
-                    {it.variant_group}
+        <div className="space-y-2">
+          {grouped.map(({ groupName, groupItems }) => {
+            const isExpanded = expandedGroups.has(groupName);
+            
+            return (
+              <div
+                key={groupName}
+                className="rounded-xl border bg-card overflow-hidden"
+              >
+                {/* Accordion Header */}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(groupName)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">{groupName}</h3>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      {groupItems.length}
+                    </span>
+                  </div>
+                  <ChevronDown 
+                    className={`h-5 w-5 transition-transform duration-200 ${
+                      isExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {/* Accordion Content */}
+                {isExpanded && (
+                  <div className="border-t">
+                    {groupItems.map((it, idx) => (
+                      <div
+                        key={it.id}
+                        className={`p-4 ${
+                          idx !== groupItems.length - 1 ? "border-b" : ""
+                        }`}
+                      >
+                        <div className="flex gap-3">
+                          {/* Image Thumbnail */}
+                          <div className="shrink-0 relative w-20 h-20">
+                            {it.image_url ? (
+                              <Image
+                                src={it.image_url}
+                                alt={it.name}
+                                fill
+                                className="rounded-lg object-cover"
+                                sizes="80px"
+                                onError={(e) => {
+                                  // Fallback jika image gagal load
+                                  e.currentTarget.style.display = "none";
+                                  const parent = e.currentTarget.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = '<div class="w-20 h-20 rounded-lg bg-muted flex items-center justify-center text-2xl">🍽️</div>';
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center text-2xl">
+                                🍽️
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div>
+                              <h4 className="font-semibold text-sm">{it.name}</h4>
+                              {it.description && (
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                  {it.description}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold text-sm">
+                                {formatRupiah(it.price)}
+                              </span>
+
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  addItem({
+                                    id: it.id,
+                                    name: it.name,
+                                    price: it.price,
+                                    quantity: 1,
+                                    image_url: it.image_url ?? undefined,
+                                  });
+                                  toast.success(`${it.name} ditambahkan ke keranjang`);
+                                }}
+                              >
+                                Tambah
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">
-                  {formatRupiah(it.price)}
-                </div>
-
-                <Button
-                  onClick={() => {
-                    addItem({
-                      id: it.id,
-                      name: it.name,
-                      price: it.price,
-                      quantity: 1,
-                      image_url: it.image_url ?? undefined,
-                    });
-                    toast.success("Ditambahkan ke keranjang");
-                  }}
-                >
-                  Tambah
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </main>

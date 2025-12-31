@@ -22,46 +22,65 @@ type MenuItemRaw = {
   categories: Category | null;
 };
 
-type MenuItemEnriched = Omit<MenuItemRaw, 'categories'> & {
-  categories: (Category & {
-    parent_category: { name: string } | null;
-  }) | null;
+type MenuItemEnriched = Omit<MenuItemRaw, "categories"> & {
+  categories:
+    | (Category & {
+        parent_category: { name: string } | null;
+      })
+    | null;
 };
+
+function jsonNoStore<T>(data: T, init?: number | ResponseInit) {
+  const responseInit: ResponseInit =
+    typeof init === "number" ? { status: init } : init ?? {};
+
+  return NextResponse.json(data, {
+    ...responseInit,
+    headers: {
+      ...(responseInit.headers ?? {}),
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+  });
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const parentCategoryId = searchParams.get("category_id"); // Ini sekarang parent category ID
+  const parentCategoryId = searchParams.get("category_id");
   const q = searchParams.get("q");
   const variant = searchParams.get("variant");
 
-  // ✅ Query dengan foreign key untuk mendapatkan category
   let query = supabaseServer
     .from("menu_items")
-    .select(`
+    .select(
+      `
       *,
       categories!menu_items_category_id_fkey (
         id,
         name,
         parent_id
       )
-    `)
+    `
+    )
     .eq("is_available", true)
     .order("created_at", { ascending: false });
 
-  // ✅ Filter berdasarkan parent category (Makanan/Minuman)
   if (parentCategoryId) {
-    // Ambil semua child categories yang parent_id-nya sesuai
-    const { data: childCategories } = await supabaseServer
+    const { data: childCategories, error: childErr } = await supabaseServer
       .from("categories")
       .select("id")
       .eq("parent_id", parentCategoryId);
+
+    if (childErr) {
+      return jsonNoStore<{ message: string }>({ message: childErr.message }, 500);
+    }
 
     if (childCategories && childCategories.length > 0) {
       const childIds = childCategories.map((c) => c.id);
       query = query.in("category_id", childIds);
     } else {
-      // Jika tidak ada child, return kosong
-      return NextResponse.json({ items: [] });
+      return jsonNoStore<{ items: MenuItemEnriched[] }>({ items: [] });
     }
   }
 
@@ -72,12 +91,11 @@ export async function GET(req: Request) {
 
   if (error) {
     console.error("Supabase error:", error);
-    return NextResponse.json({ message: error.message }, { status: 500 });
+    return jsonNoStore<{ message: string }>({ message: error.message }, 500);
   }
 
   const rawData = data as MenuItemRaw[] | null;
 
-  // ✅ Fetch parent categories untuk semua items
   if (rawData && rawData.length > 0) {
     const parentIds = [
       ...new Set(
@@ -88,16 +106,19 @@ export async function GET(req: Request) {
     ];
 
     if (parentIds.length > 0) {
-      const { data: parents } = await supabaseServer
+      const { data: parents, error: parentErr } = await supabaseServer
         .from("categories")
         .select("id, name")
         .in("id", parentIds);
 
+      if (parentErr) {
+        return jsonNoStore<{ message: string }>({ message: parentErr.message }, 500);
+      }
+
       const parentMap = new Map(
-        (parents as Category[] | null)?.map((p) => [p.id, p.name]) ?? []
+        ((parents ?? []) as Array<{ id: string; name: string }>).map((p) => [p.id, p.name])
       );
 
-      // ✅ Tambahkan parent_category name ke setiap item
       const enrichedData: MenuItemEnriched[] = rawData.map((item) => ({
         ...item,
         categories: item.categories
@@ -110,11 +131,10 @@ export async function GET(req: Request) {
           : null,
       }));
 
-      return NextResponse.json({ items: enrichedData });
+      return jsonNoStore<{ items: MenuItemEnriched[] }>({ items: enrichedData });
     }
   }
 
-  // Fallback jika tidak ada parent_id atau data kosong
   const fallbackData: MenuItemEnriched[] = (rawData ?? []).map((item) => ({
     ...item,
     categories: item.categories
@@ -125,5 +145,5 @@ export async function GET(req: Request) {
       : null,
   }));
 
-  return NextResponse.json({ items: fallbackData });
+  return jsonNoStore<{ items: MenuItemEnriched[] }>({ items: fallbackData });
 }

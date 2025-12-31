@@ -2,45 +2,92 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/admin-auth-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type Body = {
   id: string;
-  categoryId: string;
-  name: string;
-  description?: string;
-  price: number;
-  imageUrl?: string;
-  isAvailable: boolean;
+  categoryId?: string;
+  name?: string;
+  description?: string | null;
+  price?: number;
+  imageUrl?: string | null;
+  isAvailable?: boolean;
+  variantGroup?: string | null; // <-- penting
+};
+
+type UpdatePayload = {
+  category_id?: string;
+  name?: string;
+  description?: string | null;
+  price?: number;
+  image_url?: string | null;
+  is_available?: boolean;
+  variant_group?: string | null;
 };
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as Body;
+  const guard = await requireAdmin();
+  if (guard) return guard;
 
-  const id = (body.id ?? "").trim();
-  const categoryId = (body.categoryId ?? "").trim();
-  const name = (body.name ?? "").trim();
-
-  if (!id) return NextResponse.json({ message: "id required" }, { status: 400 });
-  if (!categoryId) return NextResponse.json({ message: "categoryId required" }, { status: 400 });
-  if (!name) return NextResponse.json({ message: "name required" }, { status: 400 });
-
-  const price = Number(body.price);
-  if (!Number.isFinite(price) || price < 0) {
-    return NextResponse.json({ message: "price invalid" }, { status: 400 });
+  let body: Body;
+  try {
+    body = (await req.json()) as Body;
+  } catch {
+    return NextResponse.json({ message: "Body JSON tidak valid" }, { status: 400 });
   }
 
-  const { error } = await supabaseAdmin
-    .from("menu_items")
-    .update({
-      category_id: categoryId,
-      name,
-      description: body.description?.trim() ? body.description.trim() : null,
-      price,
-      image_url: body.imageUrl?.trim() ? body.imageUrl.trim() : null,
-      is_available: Boolean(body.isAvailable),
-    })
-    .eq("id", id);
+  const id = (body.id ?? "").trim();
+  if (!id) return NextResponse.json({ message: "id required" }, { status: 400 });
+
+  const patch: UpdatePayload = {};
+
+  // ✅ hanya update kalau field-nya benar-benar dikirim
+  if (typeof body.categoryId === "string") {
+    const v = body.categoryId.trim();
+    if (!v) return NextResponse.json({ message: "categoryId required" }, { status: 400 });
+    patch.category_id = v;
+  }
+
+  if (typeof body.name === "string") {
+    const v = body.name.trim();
+    if (!v) return NextResponse.json({ message: "name required" }, { status: 400 });
+    patch.name = v;
+  }
+
+  if (body.description !== undefined) {
+    const v = typeof body.description === "string" ? body.description.trim() : "";
+    patch.description = v ? v : null;
+  }
+
+  if (body.imageUrl !== undefined) {
+    const v = typeof body.imageUrl === "string" ? body.imageUrl.trim() : "";
+    patch.image_url = v ? v : null;
+  }
+
+  if (body.price !== undefined) {
+    const price = Number(body.price);
+    if (!Number.isFinite(price) || price < 0) {
+      return NextResponse.json({ message: "price invalid" }, { status: 400 });
+    }
+    patch.price = price;
+  }
+
+  if (body.isAvailable !== undefined) {
+    patch.is_available = Boolean(body.isAvailable);
+  }
+
+  // ✅ INI kuncinya: variant_group cuma diubah kalau dikirim
+  if (body.variantGroup !== undefined) {
+    const v = typeof body.variantGroup === "string" ? body.variantGroup.trim() : "";
+    patch.variant_group = v ? v : null; // kirim "" => null, kirim string => set value
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ message: "no fields to update" }, { status: 400 });
+  }
+
+  const { error } = await supabaseAdmin.from("menu_items").update(patch).eq("id", id);
 
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });
 

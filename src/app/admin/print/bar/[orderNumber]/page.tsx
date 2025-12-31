@@ -1,47 +1,55 @@
-export const dynamic = "force-dynamic"
-export const runtime = "nodejs"
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-import { notFound } from "next/navigation"
-import { supabaseAdmin } from "@/lib/supabase/admin"
-import { formatWaktuID } from "@/lib/date"
-import { PrintAuto } from "@/components/PrintAuto"
+import { notFound } from "next/navigation";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { formatWaktuID } from "@/lib/date";
+import { PrintAuto } from "@/components/PrintAuto";
 
 type OrderRow = {
-  id: string
-  order_number: string
-  created_at: string
-  payment_status: "pending" | "paid" | "failed" | "expired"
-  payment_method: string | null
-  tables: { table_number: number } | null
-}
+  id: string;
+  order_number: string;
+  created_at: string;
+  payment_status: "pending" | "paid" | "failed" | "expired";
+  payment_method: string | null;
+  tables: { table_number: number } | null;
+};
 
 type ItemRow = {
-  id: string
-  quantity: number
-  notes: string | null
-  menu_items: { name: string; category_id: string } | null
+  id: string;
+  quantity: number;
+  notes: string | null;
+  menu_items: { name: string; category_id: string | null } | null;
+};
+
+type CategoryRow = { id: string; name: string; parent_id: string | null };
+
+function normalize(s: string) {
+  return s.trim().toLowerCase();
 }
 
-type CategoryRow = { id: string; name: string }
-
-function getCategoryName(map: Map<string, string>, categoryId: string) {
-  return (map.get(categoryId) ?? "").toLowerCase()
+function getRootParentName(categoryId: string, catById: Map<string, CategoryRow>): string {
+  const cat = catById.get(categoryId);
+  if (!cat) return "";
+  if (!cat.parent_id) return normalize(cat.name); // sudah parent/root
+  const parent = catById.get(cat.parent_id);
+  return parent ? normalize(parent.name) : "";
 }
 
 export default async function PrintBarPage({
   params,
 }: {
-  params: Promise<{ orderNumber: string }>
+  params: Promise<{ orderNumber: string }>;
 }) {
-  const { orderNumber } = await params
+  const { orderNumber } = await params;
 
   const { data: order, error: orderErr } = await supabaseAdmin
     .from("orders")
     .select("id,order_number,created_at,payment_status,payment_method,tables(table_number)")
     .eq("order_number", orderNumber)
-    .single<OrderRow>()
+    .single<OrderRow>();
 
-  if (orderErr || !order) return notFound()
+  if (orderErr || !order) return notFound();
 
   const [{ data: items, error: itemsErr }, { data: cats, error: catsErr }] = await Promise.all([
     supabaseAdmin
@@ -49,19 +57,21 @@ export default async function PrintBarPage({
       .select("id,quantity,notes,menu_items(name,category_id)")
       .eq("order_id", order.id)
       .returns<ItemRow[]>(),
-    supabaseAdmin.from("categories").select("id,name").returns<CategoryRow[]>(),
-  ])
+    supabaseAdmin
+      .from("categories")
+      .select("id,name,parent_id")
+      .returns<CategoryRow[]>(),
+  ]);
 
-  if (itemsErr || catsErr) return notFound()
+  if (itemsErr || catsErr) return notFound();
 
-  const catMap = new Map<string, string>((cats ?? []).map((c) => [c.id, c.name]))
+  const catById = new Map<string, CategoryRow>((cats ?? []).map((c) => [c.id, c]));
 
-  const barItems =
-    (items ?? []).filter((it) => {
-      const catId = it.menu_items?.category_id
-      if (!catId) return false
-      return getCategoryName(catMap, catId) === "minuman"
-    }) ?? []
+  const barItems = (items ?? []).filter((it) => {
+    const catId = it.menu_items?.category_id;
+    if (!catId) return false;
+    return getRootParentName(catId, catById) === "minuman";
+  });
 
   return (
     <main className="mx-auto p-4 print:p-0" style={{ width: "80mm" }}>
@@ -106,16 +116,17 @@ export default async function PrintBarPage({
                 <div className="text-sm font-bold">
                   {it.quantity}× {it.menu_items?.name ?? "Item"}
                 </div>
-                {it.notes && <div className="text-xs opacity-75 mt-1 italic">Catatan: {it.notes}</div>}
+                {it.notes && (
+                  <div className="text-xs opacity-75 mt-1 italic">Catatan: {it.notes}</div>
+                )}
               </div>
             ))}
           </div>
         )}
 
         <div className="border-t border-dashed opacity-50 pt-2" />
-
         <div className="text-center text-[10px] opacity-60 pt-1">Prioritaskan berdasarkan waktu order</div>
       </div>
     </main>
-  )
+  );
 }
