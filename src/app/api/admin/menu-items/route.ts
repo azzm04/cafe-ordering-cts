@@ -1,3 +1,4 @@
+// src/app/api/admin/menu-items/route.ts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -19,12 +20,13 @@ type MenuItemRow = {
   price: number;
   image_url: string | null;
   is_available: boolean;
+  is_archived: boolean; 
   created_at: string;
   variant_group: string | null;
 };
 
 type MenuItemWithCategory = MenuItemRow & {
-  categories: CategoryRow [];
+  categories: CategoryRow[]; // sesuai yang kamu pakai
 };
 
 function jsonNoStore(data: unknown, init?: ResponseInit) {
@@ -47,6 +49,10 @@ export async function GET(req: Request) {
   const q = searchParams.get("q")?.trim() ?? "";
   const availableParam = searchParams.get("available"); // "1" | "0" | null
 
+  // ✅ default: sembunyikan yang sudah di-archive
+  // Kalau mau lihat yang archived, panggil: /api/admin/menu-items?archived=1
+  const archivedParam = searchParams.get("archived"); // "1" | "0" | null
+
   let query = supabaseAdmin
     .from("menu_items")
     .select(
@@ -58,6 +64,7 @@ export async function GET(req: Request) {
       price,
       image_url,
       is_available,
+      is_archived,
       created_at,
       variant_group,
       categories!menu_items_category_id_fkey (
@@ -69,20 +76,24 @@ export async function GET(req: Request) {
     )
     .order("created_at", { ascending: false });
 
-  // admin: tampilkan semua; tapi boleh filter kalau diminta
+  // default: hanya yang is_archived = false
+  if (archivedParam === "1") {
+    query = query.eq("is_archived", true);
+  } else if (archivedParam === "0") {
+    query = query.eq("is_archived", false);
+  } else {
+    query = query.eq("is_archived", false);
+  }
+
   if (availableParam === "1") query = query.eq("is_available", true);
   if (availableParam === "0") query = query.eq("is_available", false);
 
-  if (q.length > 0) {
-    // cari dari nama
-    query = query.ilike("name", `%${q}%`);
-  }
+  if (q.length > 0) query = query.ilike("name", `%${q}%`);
 
   const { data, error } = await query;
 
   if (error) return jsonNoStore({ message: error.message }, { status: 500 });
 
-  const items: MenuItemWithCategory[] = (data ?? []) as MenuItemWithCategory[];
-
+  const items = (data ?? []) as MenuItemWithCategory[];
   return jsonNoStore({ items });
 }

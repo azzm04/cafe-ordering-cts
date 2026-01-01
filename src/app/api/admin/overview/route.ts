@@ -39,7 +39,7 @@ export async function GET() {
   const { data: activeOrders, error: oErr } = await supabaseAdmin
     .from("orders")
     .select(
-      "id, order_number, total_amount, payment_status, payment_method, order_status, created_at, completed_at, table_id, tables(table_number)"
+      "id, order_number, total_amount, payment_status, payment_method, fulfillment_status, created_at, completed_at, table_id, tables(table_number)"
     )
     .is("completed_at", null)
     .order("created_at", { ascending: false })

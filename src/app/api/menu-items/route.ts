@@ -1,3 +1,4 @@
+// src/app/api/menu-items/route.ts
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
@@ -9,7 +10,7 @@ type Category = {
   parent_id: string | null;
 };
 
-type MenuItemRaw = {
+type MenuItemDbRow = {
   id: string;
   category_id: string;
   name: string;
@@ -17,8 +18,13 @@ type MenuItemRaw = {
   price: number;
   image_url: string | null;
   is_available: boolean;
+  is_archived: boolean;
   created_at: string;
-  variant_group?: string | null;
+  variant_group: string | null;
+  categories: Category[] | null;
+};
+
+type MenuItemRaw = Omit<MenuItemDbRow, "categories"> & {
   categories: Category | null;
 };
 
@@ -55,7 +61,16 @@ export async function GET(req: Request) {
     .from("menu_items")
     .select(
       `
-      *,
+      id,
+      category_id,
+      name,
+      description,
+      price,
+      image_url,
+      is_available,
+      is_archived,
+      created_at,
+      variant_group,
       categories!menu_items_category_id_fkey (
         id,
         name,
@@ -64,19 +79,21 @@ export async function GET(req: Request) {
     `
     )
     .eq("is_available", true)
+    .eq("is_archived", false)
     .order("created_at", { ascending: false });
 
   if (parentCategoryId) {
     const { data: childCategories, error: childErr } = await supabaseServer
       .from("categories")
       .select("id")
-      .eq("parent_id", parentCategoryId);
+      .eq("parent_id", parentCategoryId)
+      .returns<Array<{ id: string }>>();
 
     if (childErr) {
       return jsonNoStore<{ message: string }>({ message: childErr.message }, 500);
     }
 
-    if (childCategories && childCategories.length > 0) {
+    if (childCategories.length > 0) {
       const childIds = childCategories.map((c) => c.id);
       query = query.in("category_id", childIds);
     } else {
@@ -87,16 +104,21 @@ export async function GET(req: Request) {
   if (variant) query = query.eq("variant_group", variant);
   if (q && q.trim().length > 0) query = query.ilike("name", `%${q.trim()}%`);
 
-  const { data, error } = await query;
+  const { data, error } = await query.returns<MenuItemDbRow[]>();
 
   if (error) {
     console.error("Supabase error:", error);
     return jsonNoStore<{ message: string }>({ message: error.message }, 500);
   }
 
-  const rawData = data as MenuItemRaw[] | null;
+  const dbRows = data ?? [];
 
-  if (rawData && rawData.length > 0) {
+  const rawData: MenuItemRaw[] = dbRows.map((row) => ({
+    ...row,
+    categories: row.categories?.[0] ?? null,
+  }));
+
+  if (rawData.length > 0) {
     const parentIds = [
       ...new Set(
         rawData
@@ -109,15 +131,14 @@ export async function GET(req: Request) {
       const { data: parents, error: parentErr } = await supabaseServer
         .from("categories")
         .select("id, name")
-        .in("id", parentIds);
+        .in("id", parentIds)
+        .returns<Array<{ id: string; name: string }>>();
 
       if (parentErr) {
         return jsonNoStore<{ message: string }>({ message: parentErr.message }, 500);
       }
 
-      const parentMap = new Map(
-        ((parents ?? []) as Array<{ id: string; name: string }>).map((p) => [p.id, p.name])
-      );
+      const parentMap = new Map(parents.map((p) => [p.id, p.name] as const));
 
       const enrichedData: MenuItemEnriched[] = rawData.map((item) => ({
         ...item,
@@ -135,13 +156,10 @@ export async function GET(req: Request) {
     }
   }
 
-  const fallbackData: MenuItemEnriched[] = (rawData ?? []).map((item) => ({
+  const fallbackData: MenuItemEnriched[] = rawData.map((item) => ({
     ...item,
     categories: item.categories
-      ? {
-          ...item.categories,
-          parent_category: null,
-        }
+      ? { ...item.categories, parent_category: null }
       : null,
   }));
 
