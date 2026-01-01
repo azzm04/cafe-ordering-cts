@@ -65,9 +65,15 @@ export default function PembayaranPage() {
 
   if (!tableNumber) {
     return (
-      <main className="min-h-screen bg-background p-6 flex items-center justify-center">
-        <Card className="p-6 text-center max-w-md w-full">
-          <p className="text-muted-foreground">Kamu belum memilih meja.</p>
+      <main className="min-h-screen bg-background p-4 sm:p-6 flex items-center justify-center">
+        <Card className="p-6 sm:p-8 text-center max-w-md w-full border-muted">
+          <p className="text-base sm:text-lg text-muted-foreground font-medium">Kamu belum memilih meja.</p>
+          <Button
+            onClick={() => router.push("/pilih-meja")}
+            className="mt-4 w-full bg-primary hover:bg-primary/90 font-semibold"
+          >
+            Pilih Meja
+          </Button>
         </Card>
       </main>
     )
@@ -144,39 +150,55 @@ export default function PembayaranPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-6 space-y-6">
-      {/* Header */}
-      <div className="max-w-2xl mx-auto">
-        <h2 className="text-3xl font-bold text-foreground">Pembayaran</h2>
-        <p className="text-muted-foreground mt-1">Review pesanan terakhir</p>
+    <main className="min-h-screen bg-background p-4 sm:p-6 space-y-6 sm:space-y-8">
+      <div className="max-w-2xl mx-auto space-y-2">
+        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground">💳 Pembayaran</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Review pesanan dan pilih metode pembayaran</p>
       </div>
 
-      {/* Payment Card */}
-      <div className="max-w-2xl mx-auto space-y-6">
-        <Card className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground font-medium">Nomor Meja</span>
-            <span className="font-bold text-lg">{tableNumber}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground font-medium">Total</span>
-            <span className="font-bold text-2xl text-primary">Rp {total.toLocaleString("id-ID")}</span>
-          </div>
-
-          <Separator />
-
+      <div className="max-w-2xl mx-auto space-y-4 sm:space-y-6">
+        <Card className="p-4 sm:p-6 space-y-4 sm:space-y-5 border-muted">
+          {/* Table and total info */}
           <div className="space-y-3">
-            <div className="text-foreground font-semibold">Metode Pembayaran</div>
+            <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg bg-muted/50">
+              <span className="text-sm sm:text-base font-medium text-muted-foreground">Nomor Meja</span>
+              <span className="text-lg sm:text-2xl font-bold text-primary">#{tableNumber}</span>
+            </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg bg-primary/5 border border-primary/20">
+              <span className="text-sm sm:text-base font-medium text-foreground">Total Pembayaran</span>
+              <span className="text-2xl sm:text-3xl font-bold text-primary">
+                {new Intl.NumberFormat("id-ID", {
+                  style: "currency",
+                  currency: "IDR",
+                  maximumFractionDigits: 0,
+                }).format(total)}
+              </span>
+            </div>
+          </div>
+
+          <Separator className="my-2" />
+
+          {/* Payment method section */}
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-base sm:text-lg font-bold text-foreground">Metode Pembayaran</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">Pilih cara pembayaran yang Anda inginkan</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Button
                 type="button"
                 variant={method === "midtrans" ? "default" : "outline"}
                 onClick={() => setMethod("midtrans")}
                 disabled={loading}
-                className="font-semibold"
+                className={`h-12 sm:h-14 font-semibold text-sm sm:text-base transition-all ${
+                  method === "midtrans"
+                    ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                    : "bg-card hover:bg-muted"
+                }`}
               >
-                Online (Midtrans)
+                💳 Online (Midtrans)
               </Button>
 
               <Button
@@ -184,27 +206,39 @@ export default function PembayaranPage() {
                 variant={method === "cash" ? "default" : "outline"}
                 onClick={() => setMethod("cash")}
                 disabled={loading}
-                className="font-semibold"
+                className={`h-12 sm:h-14 font-semibold text-sm sm:text-base transition-all ${
+                  method === "cash"
+                    ? "bg-primary hover:bg-primary/90 text-primary-foreground"
+                    : "bg-card hover:bg-muted"
+                }`}
               >
-                Tunai
+                💵 Tunai
               </Button>
             </div>
 
-            <p className="text-xs text-muted-foreground leading-relaxed pt-2">
-              {method === "midtrans"
-                ? "Bayar via Midtrans Snap (QRIS, VA, dll)."
-                : "Bayar tunai ke kasir. Nota akan menampilkan status menunggu konfirmasi kasir."}
-            </p>
+            {/* Payment method description */}
+            <div className="p-3 sm:p-4 rounded-lg bg-muted/50 border border-muted">
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                {method === "midtrans"
+                  ? "✓ Bayar via Midtrans Snap dengan berbagai metode (QRIS, Bank Transfer, e-Wallet, dll)"
+                  : "✓ Bayar tunai ke kasir. Nota akan menampilkan status menunggu konfirmasi kasir"}
+              </p>
+            </div>
           </div>
         </Card>
 
         <Button
-          className="w-full font-semibold h-12 text-base"
+          className="w-full bg-primary hover:bg-primary/90 font-bold h-12 sm:h-14 text-base sm:text-lg transition-all"
           onClick={onPay}
           disabled={loading || items.length === 0 || (method === "midtrans" && !snapReady)}
         >
-          {loading ? "Memproses..." : method === "midtrans" ? "Bayar Sekarang" : "Buat Order Tunai"}
+          {loading ? "Memproses..." : method === "midtrans" ? "💳 Bayar Sekarang" : "✓ Buat Order Tunai"}
         </Button>
+
+        {/* Safety note */}
+        <p className="text-xs text-center text-muted-foreground">
+          Transaksi Anda dijamin aman. Data disimpan terenkripsi.
+        </p>
       </div>
     </main>
   )

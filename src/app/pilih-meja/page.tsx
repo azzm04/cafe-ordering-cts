@@ -49,25 +49,32 @@ export default function PilihMejaPage() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-background p-6 space-y-6">
-      {/* Header */}
-      <div className="max-w-2xl mx-auto">
-        <h2 className="text-3xl font-bold text-foreground">Pilih Nomor Meja</h2>
-        <p className="text-muted-foreground mt-1">Pilih meja yang tersedia.</p>
+    <main className="min-h-screen bg-background p-4 sm:p-6 space-y-6 sm:space-y-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="space-y-2">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground text-balance">Pilih Nomor Meja</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Memilih meja untuk memulai pengalaman berbelanja Anda
+          </p>
+        </div>
       </div>
 
-      {/* Refresh Button */}
-      <div className="max-w-2xl mx-auto flex justify-end">
-        <Button variant="outline" onClick={loadTables} disabled={loading} className="font-medium bg-transparent">
-          {loading ? "Memuat..." : "Refresh"}
+      <div className="max-w-4xl mx-auto flex justify-end">
+        <Button
+          variant="outline"
+          onClick={loadTables}
+          disabled={loading}
+          className="font-medium bg-card hover:bg-muted transition-colors"
+        >
+          {loading ? "Memuat..." : "🔄 Refresh"}
         </Button>
       </div>
 
-      {/* Content */}
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {loading ? (
-          <div className="flex justify-center py-12">
-            <p className="text-muted-foreground">Loading meja...</p>
+          <div className="flex flex-col items-center justify-center py-12 sm:py-16">
+            <div className="inline-flex h-10 w-10 animate-spin rounded-full border-4 border-muted border-t-primary mb-4"></div>
+            <p className="text-sm sm:text-base text-muted-foreground">Memuat meja...</p>
           </div>
         ) : (
           <TableSelector
