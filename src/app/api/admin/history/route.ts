@@ -9,6 +9,9 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 type PaymentStatus = "pending" | "paid" | "failed" | "expired";
 type OrderStatus = "received" | "served" | "completed";
 
+type TableEmbed = { table_number: number };
+
+
 type Row = {
   id: string;
   order_number: string;
@@ -18,8 +21,14 @@ type Row = {
   order_status: OrderStatus;
   created_at: string;
   completed_at: string | null;
-  tables: { table_number: number }[] | null;
+  tables: TableEmbed| TableEmbed[] | null;
 };
+
+function pickTable(embed: Row["tables"]): TableEmbed | null {
+  if (!embed) return null;
+  if (Array.isArray(embed)) return embed[0] ?? null;
+  return embed; // object
+}
 
 function jsonNoStore(data: unknown, init?: ResponseInit) {
   return NextResponse.json(data, {
@@ -52,7 +61,6 @@ export async function GET(req: Request) {
   const fromIndex = (page - 1) * pageSize;
   const toIndex = fromIndex + pageSize - 1;
 
-  // kalau filter meja dipakai, kita pakai INNER join supaya filter nested jalan stabil
   const useTableFilter = tableStr.length > 0 && !Number.isNaN(Number(tableStr));
 
   const selectStr = useTableFilter
@@ -102,10 +110,9 @@ export async function GET(req: Request) {
 
   const rows = (data ?? []) as Row[];
 
-  // normalisasi: tables bisa array (hasil embed), ambil table_number pertama
   const items = rows.map((r) => ({
     ...r,
-    tables: r.tables?.[0] ?? null,
+    tables: pickTable(r.tables),
   }));
 
   const total = count ?? 0;
