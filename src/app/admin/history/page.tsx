@@ -19,13 +19,14 @@ import {
 /** =========================
  *  CONFIG
  *  ========================= */
-const API_URL = "/api/admin/history"; // <-- ubah kalau endpoint kamu beda
+const API_URL = "/api/admin/history";
 
 /** =========================
  *  TYPES
  *  ========================= */
 type PaymentStatus = "pending" | "paid" | "failed" | "expired";
 type OrderStatus = "received" | "served" | "completed";
+type PaymentMethod = "cash" | "qris";
 
 type HistoryOrderRow = {
   id: string;
@@ -33,7 +34,7 @@ type HistoryOrderRow = {
   created_at: string;
   completed_at: string | null;
   total_amount: number;
-  payment_method: string | null;
+  payment_method: PaymentMethod | null;
   payment_status: PaymentStatus;
   order_status: OrderStatus;
   tables: { table_number: number } | null;
@@ -44,6 +45,7 @@ type HistoryResponse = {
   total: number;
   page: number;
   pageSize: number;
+  totalPages?: number;
   message?: string;
 };
 
@@ -133,11 +135,16 @@ export default function AdminHistoryPage() {
   // Filters
   const [q, setQ] = useState<string>("");
   const [table, setTable] = useState<string>("");
+
   const [paymentStatus, setPaymentStatus] = useState<"all" | PaymentStatus>(
     "all"
   );
   const [orderStatus, setOrderStatus] = useState<"all" | OrderStatus>("all");
-  const [method, setMethod] = useState<string>("");
+
+  // ✅ method jadi dropdown 3 opsi
+  const [paymentMethod, setPaymentMethod] = useState<"all" | PaymentMethod>(
+    "all"
+  );
 
   // Date range (YYYY-MM-DD)
   const [from, setFrom] = useState<string>("");
@@ -162,10 +169,10 @@ export default function AdminHistoryPage() {
     if (table.trim()) parts.push(`Meja: ${table.trim()}`);
     if (paymentStatus !== "all") parts.push(`Pay: ${paymentStatus}`);
     if (orderStatus !== "all") parts.push(`Status: ${orderStatus}`);
-    if (method.trim()) parts.push(`Metode: ${method.trim()}`);
+    if (paymentMethod !== "all") parts.push(`Metode: ${paymentMethod}`);
     if (from || to) parts.push(`Tanggal: ${from || "—"} s/d ${to || "—"}`);
     return parts.length ? parts.join(" • ") : "Tanpa filter";
-  }, [q, table, paymentStatus, orderStatus, method, from, to]);
+  }, [q, table, paymentStatus, orderStatus, paymentMethod, from, to]);
 
   const buildUrl = () => {
     const url = new URL(API_URL, window.location.origin);
@@ -174,11 +181,18 @@ export default function AdminHistoryPage() {
 
     if (q.trim()) url.searchParams.set("q", q.trim());
     if (table.trim()) url.searchParams.set("table", table.trim());
-    if (paymentStatus !== "all")
+
+    if (paymentStatus !== "all") {
       url.searchParams.set("payment_status", paymentStatus);
-    if (orderStatus !== "all")
+    }
+    if (orderStatus !== "all") {
       url.searchParams.set("order_status", orderStatus);
-    if (method.trim()) url.searchParams.set("method", method.trim());
+    }
+
+    // ✅ FIX: param harus "payment_method", bukan "method"
+    if (paymentMethod !== "all") {
+      url.searchParams.set("payment_method", paymentMethod);
+    }
 
     if (from) url.searchParams.set("from", from);
     if (to) url.searchParams.set("to", to);
@@ -194,7 +208,6 @@ export default function AdminHistoryPage() {
       const contentType = res.headers.get("content-type") || "";
       const raw = await res.text();
 
-      // Kalau server ngirim HTML (redirect/404/error page), tampilkan error yang jelas
       if (!contentType.includes("application/json")) {
         const hint =
           raw.includes("<!DOCTYPE") || raw.includes("<html")
@@ -211,6 +224,7 @@ export default function AdminHistoryPage() {
       if (!res.ok) throw new Error(safeMessage(json, "Gagal load history"));
 
       const data = json as HistoryResponse;
+
       setItems(Array.isArray(data.items) ? data.items : []);
       setTotal(typeof data.total === "number" ? data.total : 0);
       setPage(typeof data.page === "number" ? data.page : page);
@@ -239,7 +253,7 @@ export default function AdminHistoryPage() {
 
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, table, paymentStatus, orderStatus, method, from, to]);
+  }, [q, table, paymentStatus, orderStatus, paymentMethod, from, to]);
 
   // page change
   useEffect(() => {
@@ -273,7 +287,7 @@ export default function AdminHistoryPage() {
     setTable("");
     setPaymentStatus("all");
     setOrderStatus("all");
-    setMethod("");
+    setPaymentMethod("all");
     setFrom("");
     setTo("");
     setPage(1);
@@ -377,13 +391,23 @@ export default function AdminHistoryPage() {
             </Select>
           </div>
 
-          {/* Method */}
+          {/* ✅ Payment method dropdown */}
           <div>
-            <Input
-              placeholder="Metode (cash/qris/...)"
-              value={method}
-              onChange={(e) => setMethod(e.target.value)}
-            />
+            <Select
+              value={paymentMethod}
+              onValueChange={(v) =>
+                setPaymentMethod(v as "all" | PaymentMethod)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Metode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Pembayaran</SelectItem>
+                <SelectItem value="cash">cash</SelectItem>
+                <SelectItem value="qris">qris</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -391,18 +415,11 @@ export default function AdminHistoryPage() {
         <div className="space-y-3">
           <div className="text-xs text-muted-foreground">
             Filter:{" "}
-            <span className="font-semibold text-foreground">
-              {summaryLabel}
-            </span>
+            <span className="font-semibold text-foreground">{summaryLabel}</span>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={quickToday}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={quickToday}>
               Hari ini
             </Button>
             <Button
@@ -413,12 +430,7 @@ export default function AdminHistoryPage() {
             >
               Kemarin
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={quickLast7}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={quickLast7}>
               7 hari terakhir
             </Button>
             <Button
@@ -429,12 +441,7 @@ export default function AdminHistoryPage() {
             >
               Bulan ini
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={resetFilters}
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={resetFilters}>
               Reset
             </Button>
           </div>
