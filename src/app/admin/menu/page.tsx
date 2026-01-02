@@ -305,7 +305,10 @@ export default function AdminMenuPage() {
             <Button variant="secondary" onClick={load} disabled={loading} className="flex-1 sm:flex-none">
               {loading ? "Loading..." : "Refresh"}
             </Button>
-
+            
+            <Link href="/admin/archived-menu">
+              <Button variant="outline">Lihat Arsip</Button>
+            </Link>
             {/* CREATE */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
               <DialogTrigger asChild>
