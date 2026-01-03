@@ -190,7 +190,7 @@ export default function AdminPage() {
                 Kelola Menu
               </Button>
             </Link>
-
+            
             <Button
               variant="secondary"
               onClick={fetchOverview}
@@ -202,6 +202,15 @@ export default function AdminPage() {
 
             <Link href="/admin/history">
               <Button variant="outline">History Pesanan</Button>
+            </Link>
+
+            <Link href="/admin/laporan" className="flex-1 sm:flex-none">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto bg-transparent"
+              >
+                Laporan
+              </Button>
             </Link>
 
             <Button

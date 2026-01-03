@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getAdminCookieName, getExpectedCookieValue } from "@/lib/admin-auth";
 
-export async function middleware(req: NextRequest) {
+const COOKIE_NAME = process.env.ADMIN_COOKIE_NAME ?? "cts_admin";
+
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (pathname === "/admin/login") return NextResponse.next();
-
-  if (pathname.startsWith("/admin")) {
-    const cookie = req.cookies.get(getAdminCookieName())?.value ?? "";
-    const expected = await getExpectedCookieValue();
-
-    if (!expected || cookie !== expected) {
+  if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+    const token = req.cookies.get(COOKIE_NAME)?.value ?? "";
+    if (!token) {
       const url = req.nextUrl.clone();
       url.pathname = "/admin/login";
       return NextResponse.redirect(url);

@@ -53,7 +53,7 @@ export default function AdminLoginPage() {
     <main className="mx-auto min-h-screen max-w-md p-6 flex items-center">
       <Card className="w-full p-5 space-y-3">
         <div>
-          <h1 className="text-xl font-semibold">Kasir Login</h1>
+          <h1 className="text-xl font-semibold">Admin Login</h1>
           <p className="text-sm opacity-70">Masukkan PIN untuk akses dashboard.</p>
         </div>
 
