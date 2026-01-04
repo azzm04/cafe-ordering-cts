@@ -200,8 +200,13 @@ export default function AdminPage() {
               {loading ? "Loading..." : "Refresh"}
             </Button>
 
-            <Link href="/admin/history">
-              <Button variant="outline">History Pesanan</Button>
+            <Link href="/admin/history" className="flex-1 sm:flex-none">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto bg-transparent"
+              >
+                History Pesanan
+              </Button>
             </Link>
 
             <Link href="/admin/laporan" className="flex-1 sm:flex-none">

@@ -11,7 +11,6 @@ type OrderStatus = "received" | "served" | "completed";
 
 type TableEmbed = { table_number: number };
 
-
 type Row = {
   id: string;
   order_number: string;
@@ -21,7 +20,7 @@ type Row = {
   order_status: OrderStatus;
   created_at: string;
   completed_at: string | null;
-  tables: TableEmbed| TableEmbed[] | null;
+  tables: TableEmbed | TableEmbed[] | null;
 };
 
 function pickTable(embed: Row["tables"]): TableEmbed | null {
@@ -44,20 +43,27 @@ function jsonNoStore(data: unknown, init?: ResponseInit) {
 
 export async function GET(req: Request) {
   const guard = await requireAdmin();
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const { searchParams } = new URL(req.url);
 
   const q = (searchParams.get("q") ?? "").trim();
   const tableStr = (searchParams.get("table") ?? "").trim();
-  const paymentStatus = (searchParams.get("payment_status") ?? "").trim() as PaymentStatus | "";
-  const orderStatus = (searchParams.get("order_status") ?? "").trim() as OrderStatus | "";
+  const paymentStatus = (searchParams.get("payment_status") ?? "").trim() as
+    | PaymentStatus
+    | "";
+  const orderStatus = (searchParams.get("order_status") ?? "").trim() as
+    | OrderStatus
+    | "";
   const paymentMethod = (searchParams.get("payment_method") ?? "").trim();
   const from = (searchParams.get("from") ?? "").trim(); // YYYY-MM-DD
   const to = (searchParams.get("to") ?? "").trim(); // YYYY-MM-DD
 
   const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
-  const pageSize = Math.min(50, Math.max(5, Number(searchParams.get("pageSize") ?? "10")));
+  const pageSize = Math.min(
+    50,
+    Math.max(5, Number(searchParams.get("pageSize") ?? "10"))
+  );
   const fromIndex = (page - 1) * pageSize;
   const toIndex = fromIndex + pageSize - 1;
 
