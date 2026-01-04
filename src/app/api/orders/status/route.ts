@@ -13,7 +13,13 @@ type OrderStatusRow = {
   payment_status: PaymentStatus;
   fulfillment_status: FulfillmentStatus;
   completed_at: string | null;
-  updated_at?: string | null; // kalau kamu punya kolom updated_at, boleh dipakai
+};
+
+type StatusResponse = {
+  orderNumber: string;
+  payment_status: PaymentStatus;
+  fulfillment_status: FulfillmentStatus;
+  completed_at: string | null;
 };
 
 function jsonNoStore(data: unknown, init?: ResponseInit) {
@@ -43,13 +49,23 @@ export async function GET(req: Request) {
     .single<OrderStatusRow>();
 
   if (error || !data) {
-    return jsonNoStore({ message: error?.message ?? "Order not found" }, { status: 404 });
+    return jsonNoStore(
+      { message: error?.message ?? "Order not found" },
+      { status: 404 }
+    );
   }
 
-  return jsonNoStore({
+  // ✅ normalize: kalau completed_at ada, anggap status completed
+  const effectiveFulfillment: FulfillmentStatus = data.completed_at
+    ? "completed"
+    : data.fulfillment_status;
+
+  const payload: StatusResponse = {
     orderNumber: data.order_number,
     payment_status: data.payment_status,
-    fulfillment_status: data.fulfillment_status,
+    fulfillment_status: effectiveFulfillment,
     completed_at: data.completed_at,
-  });
+  };
+
+  return jsonNoStore(payload);
 }

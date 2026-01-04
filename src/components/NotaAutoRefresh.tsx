@@ -1,18 +1,11 @@
 // src/components/NotaAutoRefresh.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type PaymentStatus = "pending" | "paid" | "failed" | "expired";
 type FulfillmentStatus = "received" | "preparing" | "served" | "completed";
-
-type StatusResponse = {
-  orderNumber: string;
-  payment_status: PaymentStatus;
-  fulfillment_status: FulfillmentStatus;
-  completed_at: string | null;
-};
 
 type Props = {
   orderNumber: string;
@@ -21,13 +14,24 @@ type Props = {
   intervalMs?: number;
 };
 
-// Helper: cek apakah order sudah final (tidak perlu polling lagi)
-function isFinal(payment: PaymentStatus, fulfill: FulfillmentStatus) {
-  // Stop polling jika:
-  // 1. Payment gagal/expired
-  // 2. Order sudah completed
+type StatusResponse = {
+  orderNumber: string;
+  payment_status: PaymentStatus;
+  fulfillment_status: FulfillmentStatus;
+  completed_at: string | null;
+};
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function formatTimeHHmmss(d: Date) {
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
+function isFinal(payment: PaymentStatus, fulfillment: FulfillmentStatus) {
   if (payment === "failed" || payment === "expired") return true;
-  if (fulfill === "completed") return true;
+  if (fulfillment === "completed") return true;
   return false;
 }
 
@@ -39,106 +43,94 @@ export function NotaAutoRefresh({
 }: Props) {
   const router = useRouter();
 
-  const lastKnown = useRef({
-    payment: initialPaymentStatus,
-    fulfillment: initialFulfillmentStatus,
-  });
+  const [payment, setPayment] = useState<PaymentStatus>(initialPaymentStatus);
+  const [fulfillment, setFulfillment] = useState<FulfillmentStatus>(
+    initialFulfillmentStatus
+  );
+  const [lastCheck, setLastCheck] = useState<string>(() =>
+    formatTimeHHmmss(new Date())
+  );
 
-  const [active, setActive] = useState(
-    !isFinal(initialPaymentStatus, initialFulfillmentStatus)
-  );
-  
-  const [lastCheck, setLastCheck] = useState(() =>
-    new Date().toLocaleTimeString("id-ID")
-  );
+  const stopped = useMemo(() => isFinal(payment, fulfillment), [payment, fulfillment]);
+
+  const timerRef = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    if (!active) return;
-
-    let cancelled = false;
+    // kalau sudah final, stop polling
+    if (stopped) return;
 
     const tick = async () => {
+      abortRef.current?.abort();
+      abortRef.current = new AbortController();
+
       try {
         const res = await fetch(
           `/api/orders/status?orderNumber=${encodeURIComponent(orderNumber)}`,
-          { 
+          {
+            method: "GET",
             cache: "no-store",
-            next: { revalidate: 0 }
+            signal: abortRef.current.signal,
           }
         );
 
         if (!res.ok) {
-          console.warn("Failed to fetch order status:", res.status);
+          // kalau error sementara, biarkan next tick coba lagi
+          setLastCheck(formatTimeHHmmss(new Date()));
           return;
         }
 
         const json = (await res.json()) as StatusResponse;
 
-        if (cancelled) return;
+        setPayment(json.payment_status);
+        setFulfillment(json.fulfillment_status);
+        setLastCheck(formatTimeHHmmss(new Date()));
 
-        // Update last check time
-        setLastCheck(new Date().toLocaleTimeString("id-ID"));
-
-        // Check if anything changed
-        const paymentChanged = json.payment_status !== lastKnown.current.payment;
-        const fulfillmentChanged = json.fulfillment_status !== lastKnown.current.fulfillment;
-        
-        const changed = paymentChanged || fulfillmentChanged;
-
-        // Log changes for debugging
-        if (paymentChanged) {
-          console.log(
-            `💳 Payment: ${lastKnown.current.payment} → ${json.payment_status}`
-          );
-        }
-        
-        if (fulfillmentChanged) {
-          console.log(
-            `📦 Fulfillment: ${lastKnown.current.fulfillment} → ${json.fulfillment_status}`
-          );
-        }
-
-        // Update ref
-        lastKnown.current = {
-          payment: json.payment_status,
-          fulfillment: json.fulfillment_status,
-        };
-
-        // Refresh page if changed
-        if (changed) {
-          console.log("🔄 Refreshing page...");
+        // ✅ kalau ada perubahan, refresh Server Component page agar UI update
+        // (router.refresh aman dipanggil tiap tick juga, tapi ini lebih hemat)
+        if (
+          json.payment_status !== payment ||
+          json.fulfillment_status !== fulfillment
+        ) {
           router.refresh();
         }
 
-        // Stop polling if final
+        // ✅ kalau sudah final setelah update, hentikan
         if (isFinal(json.payment_status, json.fulfillment_status)) {
-          console.log("✅ Order final, stopping auto-refresh");
-          setActive(false);
+          return;
         }
-      } catch (error) {
-        console.error("Error fetching order status:", error);
+      } catch {
+        setLastCheck(formatTimeHHmmss(new Date()));
       }
     };
 
-    // First check immediately
-    tick();
+    // tick pertama
+    void tick();
 
-    // Then set interval
-    const id = window.setInterval(tick, intervalMs);
+    timerRef.current = window.setInterval(() => {
+      void tick();
+    }, intervalMs);
 
     return () => {
-      cancelled = true;
-      window.clearInterval(id);
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      timerRef.current = null;
+      abortRef.current?.abort();
+      abortRef.current = null;
     };
-  }, [active, intervalMs, orderNumber, router]);
-
-  // Don't render anything if not active
-  if (!active) return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderNumber, intervalMs, stopped]);
 
   return (
-    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-      <span>Auto refresh aktif • cek terakhir {lastCheck}</span>
+    <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
+      <span
+        className={`inline-block w-2 h-2 rounded-full ${
+          stopped ? "bg-muted-foreground/40" : "bg-emerald-500"
+        }`}
+      />
+      <span>
+        {stopped ? "Auto refresh berhenti" : "Auto refresh aktif"} · cek terakhir{" "}
+        {lastCheck}
+      </span>
     </div>
   );
 }
