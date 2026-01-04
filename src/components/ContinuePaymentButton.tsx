@@ -44,18 +44,15 @@ export function ContinuePaymentButton({ orderNumber }: Props) {
         throw new Error("Link pembayaran belum tersedia. Coba refresh beberapa detik lagi.");
       }
 
-      // ✅ Open tab baru (no popup snap)
-      const w = window.open(json.redirectUrl, "_blank", "noopener,noreferrer");
+      // ✅ FIX: Langsung redirect di tab yang sama.
+      // Ini mencegah terbukanya 2 tab (popup + redirect) secara bersamaan.
+      // User akan diarahkan ke Midtrans, lalu nanti balik lagi ke halaman nota setelah bayar.
+      window.location.href = json.redirectUrl;
 
-      // Kalau diblokir browser, fallback redirect tab yang sama
-      if (!w) {
-        window.location.href = json.redirectUrl;
-      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unknown error";
       setErr(msg);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Matikan loading kalau error, biar bisa klik lagi
     }
   };
 
@@ -64,17 +61,18 @@ export function ContinuePaymentButton({ orderNumber }: Props) {
       <Button
         type="button"
         onClick={openPayment}
-        className="w-full font-semibold h-11 text-base"
+        // Saya ganti warna jadi Emerald/Hijau agar beda dengan tombol "Pesan Lagi" (Opsional)
+        className="w-full font-semibold h-12 text-base shadow-md bg-emerald-700 hover:bg-emerald-800 text-white"
         disabled={loading}
       >
-        💳 {loading ? "Membuka..." : "Lanjutkan Pembayaran"}
+        {/* Tambah ikon kartu agar lebih intuitif */}
+        <span className="mr-2">💳</span> 
+        {loading ? "Memproses..." : "Lanjutkan Pembayaran"}
       </Button>
 
-      {err ? <p className="mt-2 text-sm text-red-600">{err}</p> : null}
-
-      <p className="mt-2 text-xs text-muted-foreground">
-        Jika tab pembayaran tertutup, klik tombol ini untuk melanjutkan pembayaran.
-      </p>
+      {err ? <p className="mt-2 text-sm text-red-600 text-center">{err}</p> : null}
+      
+      {/* Teks bantuan di bawah dihapus atau disederhanakan karena sekarang sistemnya redirect, bukan popup */}
     </div>
   );
 }
