@@ -1,27 +1,40 @@
-// src/app/api/orders/complete/route.ts
-import { NextResponse } from "next/server";
-import { supabaseServer } from "@/lib/supabase/server";
+// src/app/api/admin/orders/complete/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-type CompleteOrderBody = {
-  orderId: string;
+import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
+type Body = {
+  orderNumber: string;
 };
+
+function getErrorMessage(err: unknown) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return "Unknown error";
+  }
+}
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as CompleteOrderBody;
+    const body = (await req.json()) as Body;
 
-    if (!body.orderId) {
+    if (!body.orderNumber) {
       return NextResponse.json(
-        { message: "orderId is required" },
+        { message: "orderNumber is required" },
         { status: 400 }
       );
     }
 
     // 1. Get order details
-    const { data: order, error: orderErr } = await supabaseServer
+    const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
-      .select("id, table_id, payment_status, completed_at")
-      .eq("id", body.orderId)
+      .select("id, table_id, payment_status, fulfillment_status, completed_at")
+      .eq("order_number", body.orderNumber)
       .single();
 
     if (orderErr || !order) {
@@ -46,12 +59,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Complete the order
-    const { error: updateErr } = await supabaseServer
+    // 3. ✅ Complete the order - Update both fulfillment_status AND completed_at
+    const { error: updateErr } = await supabaseAdmin
       .from("orders")
       .update({
+        fulfillment_status: "completed",  // ← PENTING: Set jadi completed
         completed_at: new Date().toISOString(),
-        order_status: "completed",
       })
       .eq("id", order.id);
 
@@ -64,19 +77,18 @@ export async function POST(req: Request) {
     }
 
     // 4. Release the table
-    const { error: tableErr } = await supabaseServer
+    const { error: tableErr } = await supabaseAdmin
       .from("tables")
       .update({ status: "available" })
       .eq("id", order.table_id);
 
     if (tableErr) {
       console.error("Error releasing table:", tableErr);
-      // Order sudah di-complete, tapi table gagal di-release
-      // Tidak perlu rollback, cukup log error
+      // Order sudah completed, tapi table gagal release
       return NextResponse.json(
-        { 
+        {
           message: "Order completed but failed to release table",
-          warning: tableErr.message 
+          warning: tableErr.message,
         },
         { status: 200 }
       );
@@ -84,78 +96,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       message: "Order completed successfully",
-      orderId: order.id,
+      orderNumber: body.orderNumber,
       tableReleased: true,
     });
 
   } catch (error) {
-    console.error("Unexpected error in POST /api/orders/complete:", error);
+    console.error("Unexpected error in POST /api/admin/orders/complete:", error);
     return NextResponse.json(
       {
         message: "Internal server error",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// GET endpoint untuk cek apakah order bisa di-complete
-export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const orderId = searchParams.get("orderId");
-
-    if (!orderId) {
-      return NextResponse.json(
-        { message: "orderId is required" },
-        { status: 400 }
-      );
-    }
-
-    const { data: order, error } = await supabaseServer
-      .from("orders")
-      .select(`
-        id,
-        order_number,
-        payment_status,
-        order_status,
-        completed_at,
-        tables (
-          table_number,
-          status
-        )
-      `)
-      .eq("id", orderId)
-      .single();
-
-    if (error || !order) {
-      return NextResponse.json(
-        { message: "Order not found" },
-        { status: 404 }
-      );
-    }
-
-    const canComplete = 
-      order.payment_status === "paid" && 
-      !order.completed_at;
-
-    return NextResponse.json({
-      order,
-      canComplete,
-      reason: !canComplete 
-        ? order.payment_status !== "paid"
-          ? "Order not paid yet"
-          : "Order already completed"
-        : null,
-    });
-
-  } catch (error) {
-    console.error("Unexpected error in GET /api/orders/complete:", error);
-    return NextResponse.json(
-      {
-        message: "Internal server error",
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: getErrorMessage(error),
       },
       { status: 500 }
     );

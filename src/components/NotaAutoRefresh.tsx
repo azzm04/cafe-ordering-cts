@@ -1,91 +1,144 @@
+// src/components/NotaAutoRefresh.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type PaymentStatus = "pending" | "paid" | "failed" | "expired";
+type FulfillmentStatus = "received" | "preparing" | "served" | "completed";
+
+type StatusResponse = {
+  orderNumber: string;
+  payment_status: PaymentStatus;
+  fulfillment_status: FulfillmentStatus;
+  completed_at: string | null;
+};
 
 type Props = {
-  /** Nomor order, buat polling endpoint */
   orderNumber: string;
-  /** Status sekarang dari server */
-  initialStatus: PaymentStatus;
-  /** interval polling dalam ms */
+  initialPaymentStatus: PaymentStatus;
+  initialFulfillmentStatus: FulfillmentStatus;
   intervalMs?: number;
 };
 
-type StatusResponse =
-  | { ok: true; payment_status: PaymentStatus }
-  | { ok: false; message: string };
-
-function isPaymentStatus(v: unknown): v is PaymentStatus {
-  return v === "pending" || v === "paid" || v === "failed" || v === "expired";
+// Helper: cek apakah order sudah final (tidak perlu polling lagi)
+function isFinal(payment: PaymentStatus, fulfill: FulfillmentStatus) {
+  // Stop polling jika:
+  // 1. Payment gagal/expired
+  // 2. Order sudah completed
+  if (payment === "failed" || payment === "expired") return true;
+  if (fulfill === "completed") return true;
+  return false;
 }
 
 export function NotaAutoRefresh({
   orderNumber,
-  initialStatus,
-  intervalMs = 4000,
+  initialPaymentStatus,
+  initialFulfillmentStatus,
+  intervalMs = 3000,
 }: Props) {
   const router = useRouter();
-  const [status, setStatus] = useState<PaymentStatus>(initialStatus);
-  const timerRef = useRef<number | null>(null);
+
+  const lastKnown = useRef({
+    payment: initialPaymentStatus,
+    fulfillment: initialFulfillmentStatus,
+  });
+
+  const [active, setActive] = useState(
+    !isFinal(initialPaymentStatus, initialFulfillmentStatus)
+  );
+  
+  const [lastCheck, setLastCheck] = useState(() =>
+    new Date().toLocaleTimeString("id-ID")
+  );
 
   useEffect(() => {
-    setStatus(initialStatus);
-  }, [initialStatus]);
+    if (!active) return;
 
-  useEffect(() => {
-    // kalau sudah paid/failed/expired, stop polling
-    if (status !== "pending") return;
-
-    let stopped = false;
+    let cancelled = false;
 
     const tick = async () => {
       try {
         const res = await fetch(
-          `/api/orders/status?order_number=${encodeURIComponent(orderNumber)}`,
-          { cache: "no-store" }
+          `/api/orders/status?orderNumber=${encodeURIComponent(orderNumber)}`,
+          { 
+            cache: "no-store",
+            next: { revalidate: 0 }
+          }
         );
 
-        const json: unknown = await res.json();
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn("Failed to fetch order status:", res.status);
+          return;
+        }
 
-        const data = json as StatusResponse;
-        if (!("ok" in data) || data.ok !== true) return;
+        const json = (await res.json()) as StatusResponse;
 
-        if (!isPaymentStatus(data.payment_status)) return;
+        if (cancelled) return;
 
-        if (stopped) return;
+        // Update last check time
+        setLastCheck(new Date().toLocaleTimeString("id-ID"));
 
-        if (data.payment_status !== status) {
-          setStatus(data.payment_status);
+        // Check if anything changed
+        const paymentChanged = json.payment_status !== lastKnown.current.payment;
+        const fulfillmentChanged = json.fulfillment_status !== lastKnown.current.fulfillment;
+        
+        const changed = paymentChanged || fulfillmentChanged;
 
-          // kalau sudah paid -> refresh server component agar UI berubah
+        // Log changes for debugging
+        if (paymentChanged) {
+          console.log(
+            `💳 Payment: ${lastKnown.current.payment} → ${json.payment_status}`
+          );
+        }
+        
+        if (fulfillmentChanged) {
+          console.log(
+            `📦 Fulfillment: ${lastKnown.current.fulfillment} → ${json.fulfillment_status}`
+          );
+        }
+
+        // Update ref
+        lastKnown.current = {
+          payment: json.payment_status,
+          fulfillment: json.fulfillment_status,
+        };
+
+        // Refresh page if changed
+        if (changed) {
+          console.log("🔄 Refreshing page...");
           router.refresh();
         }
-      } catch {
-        // swallow error (offline dll)
+
+        // Stop polling if final
+        if (isFinal(json.payment_status, json.fulfillment_status)) {
+          console.log("✅ Order final, stopping auto-refresh");
+          setActive(false);
+        }
+      } catch (error) {
+        console.error("Error fetching order status:", error);
       }
     };
 
-    timerRef.current = window.setInterval(tick, intervalMs);
+    // First check immediately
+    tick();
 
-    // juga lakukan cek cepat sekali saat mount
-    tick().catch(() => {});
+    // Then set interval
+    const id = window.setInterval(tick, intervalMs);
 
     return () => {
-      stopped = true;
-      if (timerRef.current) window.clearInterval(timerRef.current);
+      cancelled = true;
+      window.clearInterval(id);
     };
-  }, [orderNumber, intervalMs, router, status]);
+  }, [active, intervalMs, orderNumber, router]);
 
-  // Optional: tampilkan indikator kecil kalau polling aktif
-  if (status !== "pending") return null;
+  // Don't render anything if not active
+  if (!active) return null;
 
   return (
-    <p className="text-xs text-muted-foreground mt-2">
-      ⏳ Mengecek status pembayaran otomatis...
-    </p>
+    <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+      <span>Auto refresh aktif • cek terakhir {lastCheck}</span>
+    </div>
   );
 }
