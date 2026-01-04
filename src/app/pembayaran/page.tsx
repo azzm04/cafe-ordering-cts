@@ -198,7 +198,7 @@ export default function PembayaranPage() {
                     : "bg-card hover:bg-muted"
                 }`}
               >
-                💳 Online (Midtrans)
+                💳 Transfer (QRIS)
               </Button>
 
               <Button

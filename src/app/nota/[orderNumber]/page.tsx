@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { formatRupiah } from "@/lib/utils";
 import { RefreshButton } from "@/components/RefreshButton";
+import { NotaAutoRefresh } from "@/components/NotaAutoRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -155,6 +156,7 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
 
   const isCash = order.payment_method === "cash";
   const isCashPending = isCash && order.payment_status === "pending";
+  const isPaid = order.payment_status === "paid";
 
   const payUI = paymentConfig[order.payment_status];
   const prodUI = fulfillmentConfig[order.fulfillment_status];
@@ -169,12 +171,29 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
           <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full mb-4">
             NOTA DIGITAL
           </span>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3 text-balance">
-            Terima Kasih 🎉
-          </h1>
-          <p className="text-base sm:text-lg text-muted-foreground">
-            Pesanan Anda sudah tercatat. Kamu bisa cek status pembayaran & status pesanan di sini.
-          </p>
+
+          {isPaid ? (
+            <>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3 text-balance">
+                Terima Kasih 🎉
+              </h1>
+              <p className="text-base sm:text-lg text-muted-foreground">
+                Pembayaran sudah kami terima. Kamu bisa cek status pesanan di sini.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-3 text-balance">
+                Menunggu Pembayaran
+              </h1>
+              <p className="text-base sm:text-lg text-muted-foreground">
+                Pesanan kamu sudah tercatat. Silakan selesaikan pembayaran, status akan diperbarui otomatis.
+              </p>
+
+              {/* Auto refresh indicator (polling) */}
+              <NotaAutoRefresh orderNumber={order.order_number} initialStatus={order.payment_status} />
+            </>
+          )}
         </div>
 
         {/* Cash pending alert */}
@@ -185,14 +204,10 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
                 <div className="text-lg font-bold text-amber-700">!</div>
               </div>
               <div className="flex-1">
-                <div className="font-semibold text-amber-900">
-                  Menunggu Pembayaran Tunai
-                </div>
+                <div className="font-semibold text-amber-900">Menunggu Pembayaran Tunai</div>
                 <div className="text-sm text-amber-800 mt-1">
                   Silakan bayar ke kasir dengan nomor order:{" "}
-                  <span className="font-mono font-bold text-base">
-                    {order.order_number}
-                  </span>
+                  <span className="font-mono font-bold text-base">{order.order_number}</span>
                 </div>
               </div>
             </div>
@@ -202,39 +217,25 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
         {/* Main card */}
         <Card className="p-6 sm:p-8 space-y-6 border border-border shadow-sm">
           {/* Status Produksi */}
-          <div
-            className={`flex items-start gap-4 p-5 rounded-lg ${prodUI.bgColor} border ${prodUI.borderColor}`}
-          >
-            <div
-              className={`w-3 h-3 rounded-full ${prodUI.dotColor} mt-1 flex-shrink-0`}
-            />
+          <div className={`flex items-start gap-4 p-5 rounded-lg ${prodUI.bgColor} border ${prodUI.borderColor}`}>
+            <div className={`w-3 h-3 rounded-full ${prodUI.dotColor} mt-1 flex-shrink-0`} />
             <div className="flex-1">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Status Pesanan
               </div>
-              <div className={`text-lg font-bold ${prodUI.textColor} mt-1`}>
-                {prodUI.label}
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">
-                {prodUI.desc}
-              </div>
+              <div className={`text-lg font-bold ${prodUI.textColor} mt-1`}>{prodUI.label}</div>
+              <div className="text-sm text-muted-foreground mt-1">{prodUI.desc}</div>
             </div>
           </div>
 
           {/* Status Pembayaran */}
-          <div
-            className={`flex items-center gap-4 p-5 rounded-lg ${payUI.bgColor} border ${payUI.borderColor}`}
-          >
-            <div
-              className={`w-3 h-3 rounded-full ${payUI.dotColor} flex-shrink-0`}
-            />
+          <div className={`flex items-center gap-4 p-5 rounded-lg ${payUI.bgColor} border ${payUI.borderColor}`}>
+            <div className={`w-3 h-3 rounded-full ${payUI.dotColor} flex-shrink-0`} />
             <div className="flex-1">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Status Pembayaran
               </div>
-              <div className={`text-lg font-bold ${payUI.textColor} mt-1`}>
-                {payUI.label}
-              </div>
+              <div className={`text-lg font-bold ${payUI.textColor} mt-1`}>{payUI.label}</div>
             </div>
           </div>
 
@@ -256,9 +257,7 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Nomor Meja
               </div>
-              <div className="text-2xl font-bold text-foreground">
-                {tableNumber ?? "-"}
-              </div>
+              <div className="text-2xl font-bold text-foreground">{tableNumber ?? "-"}</div>
             </div>
 
             <div className="space-y-2">
@@ -266,9 +265,7 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
                 Metode Pembayaran
               </div>
               <div className="text-base sm:text-lg font-semibold text-foreground capitalize">
-                {order.payment_method === "cash"
-                  ? "Tunai"
-                  : order.payment_method || "Online"}
+                {order.payment_method === "cash" ? "Tunai" : order.payment_method || "Online"}
               </div>
             </div>
 
@@ -276,19 +273,13 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Waktu Pesan
               </div>
-              <div className="text-sm font-semibold text-foreground">
-                {formatDateTimeID(order.created_at)}
-              </div>
+              <div className="text-sm font-semibold text-foreground">{formatDateTimeID(order.created_at)}</div>
             </div>
 
             {order.completed_at && (
               <div className="space-y-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Selesai
-                </div>
-                <div className="text-sm font-semibold text-foreground">
-                  {formatDateTimeID(order.completed_at)}
-                </div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Selesai</div>
+                <div className="text-sm font-semibold text-foreground">{formatDateTimeID(order.completed_at)}</div>
               </div>
             )}
           </div>
@@ -297,15 +288,11 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
 
           {/* Items */}
           <div className="space-y-4">
-            <div className="text-sm font-bold text-muted-foreground uppercase tracking-wide">
-              Detail Pesanan
-            </div>
+            <div className="text-sm font-bold text-muted-foreground uppercase tracking-wide">Detail Pesanan</div>
 
             <div className="space-y-3">
               {(items ?? []).length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Tidak ada item dalam pesanan ini
-                </div>
+                <div className="text-center py-8 text-muted-foreground">Tidak ada item dalam pesanan ini</div>
               ) : (
                 (items ?? []).map((it) => (
                   <div
