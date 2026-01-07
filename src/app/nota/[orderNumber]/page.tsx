@@ -110,7 +110,7 @@ export default async function NotaPage({
                 Pesanan Selesai ✨
               </h1>
               <p className="text-sm sm:text-lg text-muted-foreground">
-                Terima kasih telah memesan di Cokalt Tepi Sawah.
+                Terima kasih telah berkunjung ke Coklat Tepi Sawah.
               </p>
             </>
           ) : isFailed ? (

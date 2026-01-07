@@ -1,14 +1,28 @@
+// src/lib/inventory/stock-manager.ts
 import { supabaseAdmin } from "@/lib/supabase/admin";
+
+type DbNumeric = number | string;
 
 type RecipeRow = {
   ingredient_id: string;
-  quantity_needed: number; // per porsi
+  quantity_needed: DbNumeric; // numeric -> bisa string
 };
 
 type OrderItemRow = {
   menu_item_id: string;
-  quantity: number; // qty menu
+  quantity: DbNumeric; // int4 -> biasanya number, tapi amanin
 };
+
+type IngredientRow = {
+  id: string;
+  current_stock: DbNumeric; // numeric -> bisa string
+};
+
+function toNumber(v: DbNumeric): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) throw new Error(`Invalid numeric value: ${String(v)}`);
+  return n;
+}
 
 function assertPositive(n: number, msg: string) {
   if (!Number.isFinite(n) || n <= 0) throw new Error(msg);
@@ -25,11 +39,12 @@ export async function deductStockForOrder(orderId: string) {
   if (itemsErr) throw new Error(itemsErr.message);
   if (!items || items.length === 0) return;
 
-  // 2) group kebutuhan ingredient: ingredient_id -> totalQtyNeeded
+  // 2) akumulasi kebutuhan ingredient: ingredient_id -> totalQtyNeeded
   const neededMap = new Map<string, number>();
 
   for (const it of items) {
-    assertPositive(it.quantity, "Invalid order item quantity");
+    const qtyMenu = toNumber(it.quantity);
+    assertPositive(qtyMenu, "Invalid order item quantity");
 
     const { data: recipe, error: recipeErr } = await supabaseAdmin
       .from("menu_recipes")
@@ -39,39 +54,41 @@ export async function deductStockForOrder(orderId: string) {
 
     if (recipeErr) throw new Error(recipeErr.message);
 
-    // kalau menu belum punya resep => untuk MVP: skip (atau throw)
-    if (!recipe || recipe.length === 0) continue;
+    // ✅ MVP strict: kalau menu belum ada resep -> FAIL biar ketahuan
+    if (!recipe || recipe.length === 0) {
+      throw new Error(`Resep belum diatur untuk menu_item_id=${it.menu_item_id}`);
+    }
 
     for (const r of recipe) {
-      assertPositive(r.quantity_needed, "Invalid recipe quantity_needed");
+      const qtyNeedPerPortion = toNumber(r.quantity_needed);
+      assertPositive(qtyNeedPerPortion, "Invalid recipe quantity_needed");
 
-      const totalNeed = r.quantity_needed * it.quantity;
+      const totalNeed = qtyNeedPerPortion * qtyMenu;
       neededMap.set(r.ingredient_id, (neededMap.get(r.ingredient_id) ?? 0) + totalNeed);
     }
   }
 
   if (neededMap.size === 0) return;
 
-  // 3) lakukan pengurangan stok satu-satu + catat stock_movements
-  // MVP: lakukan serial (paling aman dulu)
+  // 3) kurangi stok + catat stock_movements
   for (const [ingredientId, qtyNeed] of neededMap.entries()) {
     const { data: ing, error: ingErr } = await supabaseAdmin
       .from("ingredients")
       .select("id, current_stock")
       .eq("id", ingredientId)
-      .single<{ id: string; current_stock: number }>();
+      .single<IngredientRow>();
 
     if (ingErr || !ing) throw new Error(ingErr?.message ?? "Ingredient not found");
 
-    const before = Number(ing.current_stock);
+    const before = toNumber(ing.current_stock);
     const after = before - qtyNeed;
 
-    // kalau mau strict: tolak kalau kurang
     if (after < 0) {
-      throw new Error(`Stock tidak cukup untuk ingredient_id=${ingredientId}. Stock=${before}, butuh=${qtyNeed}`);
+      throw new Error(
+        `Stock tidak cukup untuk ingredient_id=${ingredientId}. Stock=${before}, butuh=${qtyNeed}`
+      );
     }
 
-    // update stok
     const { error: updErr } = await supabaseAdmin
       .from("ingredients")
       .update({ current_stock: after })
@@ -79,7 +96,6 @@ export async function deductStockForOrder(orderId: string) {
 
     if (updErr) throw new Error(updErr.message);
 
-    // catat movement
     const { error: mvErr } = await supabaseAdmin.from("stock_movements").insert({
       ingredient_id: ingredientId,
       type: "out",
@@ -87,7 +103,7 @@ export async function deductStockForOrder(orderId: string) {
       stock_before: before,
       stock_after: after,
       reason: "order_deduction",
-      reference_id: orderId,
+      reference_id: orderId, // pakai UUID order.id
     });
 
     if (mvErr) throw new Error(mvErr.message);
