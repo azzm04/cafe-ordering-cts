@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { formatWaktuID, timeAgoShort } from "@/lib/time";
 import type { AdminRole } from "@/lib/admin-auth";
+import StockAlertBadge from "@/components/admin/StockAlertBadge";
+import AlertsDropdown from "@/components/admin/AlertsDropdown";
 
 type TableRow = {
   id: string;
@@ -206,6 +208,13 @@ export default function AdminDashboardClient({
             >
               {loading ? "Loading..." : "Refresh"}
             </Button>
+
+            {role === "owner" && (
+              <div className="flex items-center gap-2">
+                <AlertsDropdown />
+                <StockAlertBadge />
+              </div>
+            )}
 
             <Link href="/admin/history" className="flex-1 sm:flex-none">
               <Button
