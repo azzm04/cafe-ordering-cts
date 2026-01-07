@@ -1,3 +1,4 @@
+// src/app/admin/ingredients/add/page.tsx
 import { Card } from "@/components/ui/card";
 import IngredientForm from "@/components/admin/IngredientForm";
 

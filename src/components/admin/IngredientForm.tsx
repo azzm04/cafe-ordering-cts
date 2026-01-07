@@ -1,44 +1,44 @@
-"use client";
+"use client"
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 type Ingredient = {
-  id: string;
-  name: string;
-  unit: string;
-  current_stock: number;
-  min_stock: number;
-  cost_per_unit: number | null;
-  notes: string | null;
-};
+  id: string
+  name: string
+  unit: string
+  current_stock: number
+  min_stock: number
+  cost_per_unit: number | null
+  notes: string | null
+}
 
 export default function IngredientForm({
   mode,
   initial,
 }: {
-  mode: "create" | "edit";
-  initial?: Ingredient;
+  mode: "create" | "edit"
+  initial?: Ingredient
 }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
 
-  const [name, setName] = useState(initial?.name ?? "");
-  const [unit, setUnit] = useState(initial?.unit ?? "gram");
-  const [initialStock, setInitialStock] = useState<number>(0);
-  const [minStock, setMinStock] = useState<number>(initial?.min_stock ?? 0);
-  const [cost, setCost] = useState<number>(initial?.cost_per_unit ?? 0);
-  const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [error, setError] = useState<string>("");
+  const [name, setName] = useState(initial?.name ?? "")
+  const [unit, setUnit] = useState(initial?.unit ?? "gram")
+  const [initialStock, setInitialStock] = useState<number>(0)
+  const [minStock, setMinStock] = useState<number>(initial?.min_stock ?? 0)
+  const [cost, setCost] = useState<number>(initial?.cost_per_unit ?? 0)
+  const [notes, setNotes] = useState(initial?.notes ?? "")
+  const [error, setError] = useState<string>("")
 
   async function onSubmit() {
-    setError("");
+    setError("")
 
-    if (!name.trim()) return setError("Nama wajib diisi.");
-    if (!unit.trim()) return setError("Unit wajib diisi.");
+    if (!name.trim()) return setError("Nama wajib diisi.")
+    if (!unit.trim()) return setError("Unit wajib diisi.")
 
     startTransition(async () => {
       try {
@@ -54,14 +54,14 @@ export default function IngredientForm({
               cost_per_unit: Number(cost) || 0,
               notes: notes.trim() || null,
             }),
-          });
+          })
 
-          const j = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(j?.message ?? "Gagal membuat ingredient");
+          const j = await res.json().catch(() => ({}))
+          if (!res.ok) throw new Error(j?.message ?? "Gagal membuat ingredient")
 
-          router.push("/admin/ingredients");
-          router.refresh();
-          return;
+          router.push("/admin/ingredients")
+          router.refresh()
+          return
         }
 
         // edit
@@ -75,32 +75,42 @@ export default function IngredientForm({
             cost_per_unit: Number(cost) || 0,
             notes: notes.trim() || null,
           }),
-        });
+        })
 
-        const j = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(j?.message ?? "Gagal update ingredient");
+        const j = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(j?.message ?? "Gagal update ingredient")
 
-        router.push("/admin/ingredients");
-        router.refresh();
+        router.push("/admin/ingredients")
+        router.refresh()
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Unknown error");
+        setError(e instanceof Error ? e.message : "Unknown error")
       }
-    });
+    })
   }
 
   return (
-    <div className="space-y-4">
-      {error ? <div className="text-sm text-red-600">{error}</div> : null}
+    <div className="space-y-6">
+      {/* Error Message */}
+      {error ? (
+        <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
 
       <div className="space-y-2">
-        <div className="text-sm font-semibold">Nama Bahan</div>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Contoh: Kentang" />
+        <label className="text-sm font-semibold text-foreground">Nama Bahan</label>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Contoh: Kentang"
+          className="h-11 px-4 text-sm"
+        />
       </div>
 
       <div className="space-y-2">
-        <div className="text-sm font-semibold">Unit</div>
+        <label className="text-sm font-semibold text-foreground">Unit</label>
         <select
-          className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+          className="h-11 w-full rounded-md border border-border bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
           value={unit}
           aria-label="select"
           onChange={(e) => setUnit(e.target.value)}
@@ -115,33 +125,49 @@ export default function IngredientForm({
 
       {mode === "create" ? (
         <div className="space-y-2">
-          <div className="text-sm font-semibold">Stok Awal</div>
+          <label className="text-sm font-semibold text-foreground">Stok Awal</label>
           <Input
             type="number"
             value={initialStock}
             onChange={(e) => setInitialStock(Number(e.target.value))}
+            className="h-11 px-4 text-sm"
           />
         </div>
       ) : null}
 
       <div className="space-y-2">
-        <div className="text-sm font-semibold">Minimum Stock (Threshold)</div>
-        <Input type="number" value={minStock} onChange={(e) => setMinStock(Number(e.target.value))} />
+        <label className="text-sm font-semibold text-foreground">Minimum Stock (Threshold)</label>
+        <Input
+          type="number"
+          value={minStock}
+          onChange={(e) => setMinStock(Number(e.target.value))}
+          className="h-11 px-4 text-sm"
+        />
       </div>
 
       <div className="space-y-2">
-        <div className="text-sm font-semibold">Cost per unit (opsional)</div>
-        <Input type="number" value={cost} onChange={(e) => setCost(Number(e.target.value))} />
+        <label className="text-sm font-semibold text-foreground">Cost per unit (Opsional)</label>
+        <Input
+          type="number"
+          value={cost}
+          onChange={(e) => setCost(Number(e.target.value))}
+          className="h-11 px-4 text-sm"
+        />
       </div>
 
       <div className="space-y-2">
-        <div className="text-sm font-semibold">Catatan (opsional)</div>
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <label className="text-sm font-semibold text-foreground">Catatan (Opsional)</label>
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="px-4 py-2 text-sm min-h-24" />
       </div>
 
-      <Button onClick={onSubmit} disabled={isPending} className="w-full">
+      {/* Submit Button */}
+      <Button
+        onClick={onSubmit}
+        disabled={isPending}
+        className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-md transition-all"
+      >
         {isPending ? "Menyimpan..." : mode === "create" ? "Simpan" : "Update"}
       </Button>
     </div>
-  );
+  )
 }
