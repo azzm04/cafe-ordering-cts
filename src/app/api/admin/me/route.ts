@@ -1,9 +1,12 @@
-// src/app/api/admin/me/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth-server";
 
 export async function GET() {
-  const auth = await requireAdmin();
-  if (auth instanceof NextResponse) return auth;
-  return NextResponse.json({ role: auth.role });
+  const guard = await requireAdmin();
+  if (guard instanceof NextResponse) return guard;
+
+  return NextResponse.json({ role: guard.role });
 }

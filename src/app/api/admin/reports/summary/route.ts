@@ -1,4 +1,7 @@
 // src/app/api/admin/reports/summary/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireOwner } from "@/lib/admin-auth-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -24,6 +27,8 @@ function toJakartaRange(from: string, to: string) {
 }
 
 export async function GET(req: Request) {
+  const guard = await requireOwner();
+  if (guard instanceof NextResponse) return guard;
   const auth = await requireOwner();
   if (auth instanceof NextResponse) return auth;
 

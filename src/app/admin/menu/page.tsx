@@ -1,21 +1,34 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
-import { z } from "zod"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,20 +38,23 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 
-type Category = { id: string; name: string }
+type AdminRole = "kasir" | "owner";
+
+type Category = { id: string; name: string };
+
 type MenuItemRow = {
-  id: string
-  category_id: string
-  name: string
-  description: string | null
-  price: number
-  image_url: string | null
-  is_available: boolean
-  created_at: string
-  categories?: { name: string } | null
-}
+  id: string;
+  category_id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  is_available: boolean;
+  created_at: string;
+  categories?: { name: string } | null;
+};
 
 const formSchema = z.object({
   id: z.string().optional(),
@@ -48,25 +64,40 @@ const formSchema = z.object({
   price: z.number().min(0, "Harga minimal 0"),
   imageUrl: z.string().optional(),
   isAvailable: z.boolean(),
-})
+});
 
-type FormValues = z.infer<typeof formSchema>
+type FormValues = z.infer<typeof formSchema>;
 
 function safeMessage(json: unknown, fallback: string) {
   if (typeof json === "object" && json !== null && "message" in json) {
-    return String((json as Record<string, unknown>).message)
+    return String((json as Record<string, unknown>).message);
   }
-  return fallback
+  return fallback;
+}
+
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function isMeResponse(v: unknown): v is { role: AdminRole } {
+  if (!isObject(v)) return false;
+  const role = v.role;
+  return role === "kasir" || role === "owner";
 }
 
 export default function AdminMenuPage() {
-  const [items, setItems] = useState<MenuItemRow[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [q, setQ] = useState("")
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [openCreate, setOpenCreate] = useState(false)
-  const [openEdit, setOpenEdit] = useState(false)
+  const [items, setItems] = useState<MenuItemRow[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [openCreate, setOpenCreate] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
+
+  // ✅ role admin (kasir/owner)
+  const [role, setRole] = useState<AdminRole | null>(null);
+
+  const isOwner = role === "owner";
 
   const createForm = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -78,7 +109,7 @@ export default function AdminMenuPage() {
       imageUrl: "",
       isAvailable: true,
     },
-  })
+  });
 
   const editForm = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -91,57 +122,67 @@ export default function AdminMenuPage() {
       imageUrl: "",
       isAvailable: true,
     },
-  })
+  });
 
   const groupedItems = useMemo(() => {
-    const s = q.trim().toLowerCase()
+    const s = q.trim().toLowerCase();
+    const filtered = s ? items.filter((x) => x.name.toLowerCase().includes(s)) : items;
 
-    const filtered = s ? items.filter((x) => x.name.toLowerCase().includes(s)) : items
-
-    const grouped: Record<string, MenuItemRow[]> = {}
+    const grouped: Record<string, MenuItemRow[]> = {};
     filtered.forEach((item) => {
-      const catName = item.categories?.name ?? "Tanpa Kategori"
-      if (!grouped[catName]) {
-        grouped[catName] = []
-      }
-      grouped[catName].push(item)
-    })
+      const catName = item.categories?.name ?? "Tanpa Kategori";
+      if (!grouped[catName]) grouped[catName] = [];
+      grouped[catName].push(item);
+    });
 
-    return grouped
-  }, [items, q])
+    return grouped;
+  }, [items, q]);
 
   const load = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const [resMenu, resCat] = await Promise.all([
+      const [resMe, resMenu, resCat] = await Promise.all([
+        fetch(`/api/admin/me?t=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/admin/menu-items?t=${Date.now()}`, { cache: "no-store" }),
         fetch(`/api/admin/categories?t=${Date.now()}`, { cache: "no-store" }),
-      ])
+      ]);
 
-      const textMenu = await resMenu.text()
-      const jsonMenu: unknown = textMenu ? JSON.parse(textMenu) : null
+      // role
+      const textMe = await resMe.text();
+      const jsonMe: unknown = textMe ? JSON.parse(textMe) : null;
+      if (resMe.ok && isMeResponse(jsonMe)) {
+        setRole(jsonMe.role);
+      } else if (resMe.status === 401) {
+        // tidak login admin
+        setRole(null);
+      }
 
-      const textCat = await resCat.text()
-      const jsonCat: unknown = textCat ? JSON.parse(textCat) : null
+      // menu
+      const textMenu = await resMenu.text();
+      const jsonMenu: unknown = textMenu ? JSON.parse(textMenu) : null;
 
-      if (!resMenu.ok) throw new Error(safeMessage(jsonMenu, "Gagal load menu"))
-      if (!resCat.ok) throw new Error(safeMessage(jsonCat, "Gagal load kategori"))
+      // categories
+      const textCat = await resCat.text();
+      const jsonCat: unknown = textCat ? JSON.parse(textCat) : null;
 
-      const menuData = jsonMenu as { items: MenuItemRow[] }
-      const catData = jsonCat as { categories: Category[] }
+      if (!resMenu.ok) throw new Error(safeMessage(jsonMenu, "Gagal load menu"));
+      if (!resCat.ok) throw new Error(safeMessage(jsonCat, "Gagal load kategori"));
 
-      setItems(menuData.items ?? [])
-      setCategories(catData.categories ?? [])
+      const menuData = jsonMenu as { items: MenuItemRow[] };
+      const catData = jsonCat as { categories: Category[] };
+
+      setItems(menuData.items ?? []);
+      setCategories(catData.categories ?? []);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Error")
+      toast.error(e instanceof Error ? e.message : "Error");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    void load()
-  }, [])
+    void load();
+  }, []);
 
   const createMenu = async (values: FormValues) => {
     try {
@@ -152,21 +193,21 @@ export default function AdminMenuPage() {
         price: values.price,
         imageUrl: values.imageUrl ?? "",
         isAvailable: values.isAvailable,
-      }
+      };
 
       const res = await fetch("/api/admin/menu-items/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      })
+      });
 
-      const text = await res.text()
-      const json: unknown = text ? JSON.parse(text) : null
+      const text = await res.text();
+      const json: unknown = text ? JSON.parse(text) : null;
 
-      if (!res.ok) throw new Error(safeMessage(json, "Gagal create menu"))
+      if (!res.ok) throw new Error(safeMessage(json, "Gagal create menu"));
 
-      toast.success("Menu berhasil dibuat")
-      setOpenCreate(false)
+      toast.success("Menu berhasil dibuat");
+      setOpenCreate(false);
       createForm.reset({
         categoryId: "",
         name: "",
@@ -174,12 +215,12 @@ export default function AdminMenuPage() {
         price: 0,
         imageUrl: "",
         isAvailable: true,
-      })
-      await load()
+      });
+      await load();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Error")
+      toast.error(e instanceof Error ? e.message : "Error");
     }
-  }
+  };
 
   const openEditDialog = (it: MenuItemRow) => {
     editForm.reset({
@@ -190,16 +231,16 @@ export default function AdminMenuPage() {
       price: Number(it.price),
       imageUrl: it.image_url ?? "",
       isAvailable: it.is_available,
-    })
-    setOpenEdit(true)
-  }
+    });
+    setOpenEdit(true);
+  };
 
   const updateMenu = async (values: FormValues) => {
     try {
-      const id = values.id ?? ""
+      const id = values.id ?? "";
       if (!id) {
-        toast.error("ID menu tidak ditemukan")
-        return
+        toast.error("ID menu tidak ditemukan");
+        return;
       }
 
       const payload = {
@@ -210,33 +251,33 @@ export default function AdminMenuPage() {
         price: values.price,
         imageUrl: values.imageUrl ?? "",
         isAvailable: values.isAvailable,
-      }
+      };
 
       const res = await fetch("/api/admin/menu-items/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      })
+      });
 
-      const text = await res.text()
-      const json: unknown = text ? JSON.parse(text) : null
+      const text = await res.text();
+      const json: unknown = text ? JSON.parse(text) : null;
 
-      if (!res.ok) throw new Error(safeMessage(json, "Gagal update menu"))
+      if (!res.ok) throw new Error(safeMessage(json, "Gagal update menu"));
 
-      toast.success("Menu berhasil diupdate")
-      setOpenEdit(false)
-      await load()
+      toast.success("Menu berhasil diupdate");
+      setOpenEdit(false);
+      await load();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Error")
+      toast.error(e instanceof Error ? e.message : "Error");
     }
-  }
+  };
 
   const openDeleteDialog = (id: string) => {
-    setDeleteId(id)
-  }
+    setDeleteId(id);
+  };
 
   const executeDelete = async () => {
-    if (!deleteId) return
+    if (!deleteId) return;
 
     try {
       const res = await fetch("/api/admin/menu-items/delete", {
@@ -244,48 +285,54 @@ export default function AdminMenuPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id: deleteId }),
         cache: "no-store",
-      })
+      });
 
-      const text = await res.text()
-      const json = text ? (JSON.parse(text) as { message?: string }) : {}
-      if (!res.ok) throw new Error(json.message ?? "Gagal arsip menu")
+      const text = await res.text();
+      const json = text ? (JSON.parse(text) as { message?: string }) : {};
+      if (!res.ok) throw new Error(json.message ?? "Gagal arsip menu");
 
-      toast.success("Menu berhasil diarsipkan")
-      await load()
+      toast.success("Menu berhasil diarsipkan");
+      await load();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Error arsip menu")
+      toast.error(e instanceof Error ? e.message : "Error arsip menu");
     } finally {
-      setDeleteId(null)
+      setDeleteId(null);
     }
-  }
+  };
 
   const toggleAvailability = async (id: string, next: boolean) => {
     try {
+      const found = items.find((x) => x.id === id);
+      if (!found) {
+        toast.error("Menu tidak ditemukan");
+        return;
+      }
+
       const res = await fetch("/api/admin/menu-items/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id,
-          categoryId: items.find((x) => x.id === id)?.category_id ?? "",
-          name: items.find((x) => x.id === id)?.name ?? "",
-          description: items.find((x) => x.id === id)?.description ?? "",
-          price: items.find((x) => x.id === id)?.price ?? 0,
-          imageUrl: items.find((x) => x.id === id)?.image_url ?? "",
+          categoryId: found.category_id,
+          name: found.name,
+          description: found.description ?? "",
+          price: found.price ?? 0,
+          imageUrl: found.image_url ?? "",
           isAvailable: next,
         }),
-      })
+      });
 
-      const text = await res.text()
-      const json: unknown = text ? JSON.parse(text) : null
+      const text = await res.text();
+      const json: unknown = text ? JSON.parse(text) : null;
 
-      if (!res.ok) throw new Error(safeMessage(json, "Gagal update availability"))
+      if (!res.ok) throw new Error(safeMessage(json, "Gagal update availability"));
 
-      toast.success(next ? "Menu diaktifkan" : "Menu diset habis")
-      await load()
+      toast.success(next ? "Menu diaktifkan" : "Menu diset habis");
+      await load();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Error")
+      toast.error(e instanceof Error ? e.message : "Error");
     }
-  }
+  };
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -302,13 +349,15 @@ export default function AdminMenuPage() {
                 Kembali ke Dashboard
               </Button>
             </Link>
+
             <Button variant="secondary" onClick={load} disabled={loading} className="flex-1 sm:flex-none">
               {loading ? "Loading..." : "Refresh"}
             </Button>
-            
+
             <Link href="/admin/archived-menu">
               <Button variant="outline">Lihat Arsip</Button>
             </Link>
+
             {/* CREATE */}
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
               <DialogTrigger asChild>
@@ -354,11 +403,7 @@ export default function AdminMenuPage() {
 
                   <div className="space-y-1">
                     <Label>Deskripsi</Label>
-                    <Textarea
-                      {...createForm.register("description")}
-                      placeholder="Deskripsi menu (opsional)"
-                      rows={3}
-                    />
+                    <Textarea {...createForm.register("description")} placeholder="Deskripsi menu (opsional)" rows={3} />
                   </div>
 
                   <div className="space-y-1">
@@ -392,6 +437,11 @@ export default function AdminMenuPage() {
             onChange={(e) => setQ(e.target.value)}
             className="w-full"
           />
+          {role && (
+            <p className="text-xs text-muted-foreground">
+              Login sebagai: <span className="font-semibold">{role}</span>
+            </p>
+          )}
         </Card>
 
         {loading ? (
@@ -408,7 +458,6 @@ export default function AdminMenuPage() {
           <div className="space-y-8">
             {Object.entries(groupedItems).map(([categoryName, categoryItems]) => (
               <div key={categoryName} className="space-y-4">
-                {/* Category Header */}
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{categoryName}</h2>
@@ -421,7 +470,6 @@ export default function AdminMenuPage() {
                   </Badge>
                 </div>
 
-                {/* Items Grid for this Category */}
                 <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                   {categoryItems.map((it) => (
                     <Card
@@ -438,49 +486,54 @@ export default function AdminMenuPage() {
                           </Badge>
                         </div>
 
-                        {it.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">{it.description}</p>
-                        )}
+                        {it.description && <p className="text-xs text-muted-foreground line-clamp-2">{it.description}</p>}
 
-                        <p className="text-sm font-bold text-primary">Rp {Number(it.price).toLocaleString("id-ID")}</p>
+                        <p className="text-sm font-bold text-primary">
+                          Rp {Number(it.price).toLocaleString("id-ID")}
+                        </p>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                        {it.is_available ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void toggleAvailability(it.id, false)}
-                            className="flex-1 text-xs"
-                          >
-                            Set Habis
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => void toggleAvailability(it.id, true)}
-                            className="flex-1 text-xs"
-                          >
-                            Aktifkan
-                          </Button>
-                        )}
+                      {/* ✅ ACTIONS */}
+                      <div className="flex flex-col gap-2 pt-2">
+                        {/* baris 1 */}
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          {it.is_available ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => void toggleAvailability(it.id, false)}
+                              className="flex-1 text-xs"
+                            >
+                              Set Habis
+                            </Button>
+                          ) : (
+                            <Button size="sm" onClick={() => void toggleAvailability(it.id, true)} className="flex-1 text-xs">
+                              Aktifkan
+                            </Button>
+                          )}
 
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditDialog(it)}
-                          className="flex-1 text-xs"
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => openDeleteDialog(it.id)}
-                          className="flex-1 text-xs"
-                        >
-                          Arsip
-                        </Button>
+                          <Button variant="outline" size="sm" onClick={() => openEditDialog(it)} className="flex-1 text-xs">
+                            Edit
+                          </Button>
+
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => openDeleteDialog(it.id)}
+                            className="flex-1 text-xs"
+                          >
+                            Arsip
+                          </Button>
+                        </div>
+
+                        {/* ✅ baris 2: OWNER ONLY */}
+                        {isOwner && (
+                          <Link href={`/admin/menu/${it.id}/recipe`} className="block">
+                            <Button variant="outline" size="sm" className="w-full text-xs">
+                              Atur Resep
+                            </Button>
+                          </Link>
+                        )}
                       </div>
                     </Card>
                   ))}
@@ -501,10 +554,7 @@ export default function AdminMenuPage() {
           <form className="space-y-3" onSubmit={editForm.handleSubmit(updateMenu)}>
             <div className="space-y-1">
               <Label>Kategori</Label>
-              <Select
-                value={editForm.watch("categoryId")}
-                onValueChange={(val) => editForm.setValue("categoryId", val)}
-              >
+              <Select value={editForm.watch("categoryId")} onValueChange={(val) => editForm.setValue("categoryId", val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
@@ -542,10 +592,7 @@ export default function AdminMenuPage() {
             </div>
 
             <div className="flex items-center gap-3 pt-2">
-              <Switch
-                checked={editForm.watch("isAvailable")}
-                onCheckedChange={(v) => editForm.setValue("isAvailable", v)}
-              />
+              <Switch checked={editForm.watch("isAvailable")} onCheckedChange={(v) => editForm.setValue("isAvailable", v)} />
               <span className="text-sm">Menu Tersedia</span>
             </div>
 
@@ -576,5 +623,5 @@ export default function AdminMenuPage() {
         </AlertDialogContent>
       </AlertDialog>
     </main>
-  )
+  );
 }

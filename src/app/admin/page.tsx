@@ -190,7 +190,7 @@ export default function AdminPage() {
                 Kelola Menu
               </Button>
             </Link>
-            
+
             <Button
               variant="secondary"
               onClick={fetchOverview}
@@ -217,7 +217,6 @@ export default function AdminPage() {
                 Laporan
               </Button>
             </Link>
-
             <Button
               variant="outline"
               onClick={() => {
