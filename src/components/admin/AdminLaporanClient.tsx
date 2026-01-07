@@ -268,14 +268,6 @@ export default function AdminLaporanClient() {
             >
               Kembali
             </Button>
-            <Link href="/admin/ingredients" className="flex-1 sm:flex-none">
-                <Button
-                  variant="outline"
-                  className="w-full sm:w-auto bg-transparent"
-                >
-                  Ingredients
-                </Button>
-              </Link>
             <Button
               onClick={handlePrint}
               variant="outline"

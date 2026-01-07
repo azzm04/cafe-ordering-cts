@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sha512Hex } from "@/lib/midtrans-signature";
+import { deductStockForOrder } from "@/lib/inventory/stock-manager";
 
 type MidtransNotif = {
   order_id: string; // CTS-...
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
     // cari order by order_number (order_id midtrans = order_number kita)
     const { data: order, error: findErr } = await supabaseAdmin
       .from("orders")
-      .select("id, table_id, order_number")
+      .select("id, table_id, order_number,stock_deducted_at")
       .eq("order_number", notif.order_id)
       .single();
 
@@ -91,6 +92,19 @@ export async function POST(req: Request) {
         .from("tables")
         .update({ status: "available" })
         .eq("id", order.table_id);
+    }
+
+    if (payment_status === "paid" && !order.stock_deducted_at) {
+      await deductStockForOrder(order.id);
+
+      const { error: markErr } = await supabaseAdmin
+        .from("orders")
+        .update({ stock_deducted_at: new Date().toISOString() })
+        .eq("id", order.id);
+
+      if (markErr) {
+        return NextResponse.json({ message: markErr.message }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ ok: true });

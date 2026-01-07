@@ -43,7 +43,11 @@ function safeMessage(json: unknown, fallback: string) {
   return fallback;
 }
 
-export default function AdminDashboardClient({ role }: { role: AdminRole | null }) {
+export default function AdminDashboardClient({
+  role,
+}: {
+  role: AdminRole | null;
+}) {
   const [tables, setTables] = useState<TableRow[]>([]);
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,7 +110,10 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
   );
 
   const activeServed = useMemo(
-    () => orders.filter((o) => o.fulfillment_status === "served" && o.completed_at === null),
+    () =>
+      orders.filter(
+        (o) => o.fulfillment_status === "served" && o.completed_at === null
+      ),
     [orders]
   );
 
@@ -127,7 +134,10 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
     }
   };
 
-  const setFulfillmentStatus = async (orderId: string, status: FulfillmentStatus) => {
+  const setFulfillmentStatus = async (
+    orderId: string,
+    status: FulfillmentStatus
+  ) => {
     try {
       const res = await fetch("/api/admin/orders/update-status", {
         method: "POST",
@@ -154,7 +164,8 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
         body: JSON.stringify({ orderNumber }),
       });
       const json = (await res.json()) as unknown;
-      if (!res.ok) throw new Error(safeMessage(json, "Gagal menyelesaikan order"));
+      if (!res.ok)
+        throw new Error(safeMessage(json, "Gagal menyelesaikan order"));
 
       toast.success("Order selesai, meja dilepas");
       await fetchOverview();
@@ -168,31 +179,58 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
       <div className="mx-auto max-w-7xl space-y-6 lg:space-y-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Dashboard Kasir</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Kelola meja, pantau order, dan proses pembayaran</p>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Dashboard Kasir
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Kelola meja, pantau order, dan proses pembayaran
+            </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             {role === "owner" && (
               <Link href="/admin/menu" className="flex-1 sm:flex-none">
-                <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto bg-transparent"
+                >
                   Kelola Menu
                 </Button>
               </Link>
             )}
 
-            <Button variant="secondary" onClick={fetchOverview} disabled={loading} className="flex-1 sm:flex-none">
+            <Button
+              variant="secondary"
+              onClick={fetchOverview}
+              disabled={loading}
+              className="flex-1 sm:flex-none"
+            >
               {loading ? "Loading..." : "Refresh"}
             </Button>
 
             <Link href="/admin/history" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto bg-transparent"
+              >
                 History Pesanan
               </Button>
             </Link>
-
+            {role === "owner" && (
+              <Link href="/admin/ingredients" className="flex-1 sm:flex-none">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto bg-transparent"
+                >
+                  Ingredients
+                </Button>
+              </Link>
+            )}
             {role === "owner" && (
               <Link href="/admin/laporan" className="flex-1 sm:flex-none">
-                <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto bg-transparent"
+                >
                   Laporan
                 </Button>
               </Link>
@@ -201,7 +239,8 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
             <Button
               variant="outline"
               onClick={() => {
-                document.cookie = "cts_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                document.cookie =
+                  "cts_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
                 location.href = "/admin/login";
               }}
               className="flex-1 sm:flex-none"
@@ -215,10 +254,20 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
           <h2 className="text-lg font-semibold">Status Meja</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
             {tables.map((t) => (
-              <Card key={t.id} className="p-3 space-y-2 hover:shadow-md transition-shadow">
+              <Card
+                key={t.id}
+                className="p-3 space-y-2 hover:shadow-md transition-shadow"
+              >
                 <div className="flex justify-between items-center gap-2">
-                  <span className="font-medium text-sm">Meja {t.table_number}</span>
-                  <Badge variant={t.status === "occupied" ? "destructive" : "secondary"} className="text-xs">
+                  <span className="font-medium text-sm">
+                    Meja {t.table_number}
+                  </span>
+                  <Badge
+                    variant={
+                      t.status === "occupied" ? "destructive" : "secondary"
+                    }
+                    className="text-xs"
+                  >
                     {t.status === "occupied" ? "Terisi" : "Kosong"}
                   </Badge>
                 </div>
@@ -236,19 +285,33 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
           </div>
 
           {cashPending.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tidak ada pembayaran tunai yang pending.</p>
+            <p className="text-sm text-muted-foreground">
+              Tidak ada pembayaran tunai yang pending.
+            </p>
           ) : (
             <div className="space-y-3">
               {cashPending.map((o) => (
-                <Card key={o.id} className="p-3 sm:p-4 space-y-3 border-l-4 border-l-destructive">
+                <Card
+                  key={o.id}
+                  className="p-3 sm:p-4 space-y-3 border-l-4 border-l-destructive"
+                >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
                       <div className="font-semibold">{o.order_number}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">Meja {o.tables?.table_number ?? "-"} • Tunai • Pending</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">
+                        Meja {o.tables?.table_number ?? "-"} • Tunai • Pending
+                      </div>
                     </div>
-                    <div className="text-lg sm:text-xl font-bold text-primary">Rp {Number(o.total_amount).toLocaleString("id-ID")}</div>
+                    <div className="text-lg sm:text-xl font-bold text-primary">
+                      Rp {Number(o.total_amount).toLocaleString("id-ID")}
+                    </div>
                   </div>
-                  <Button onClick={() => confirmCash(o.order_number)} className="w-full sm:w-auto">Konfirmasi Tunai</Button>
+                  <Button
+                    onClick={() => confirmCash(o.order_number)}
+                    className="w-full sm:w-auto"
+                  >
+                    Konfirmasi Tunai
+                  </Button>
                 </Card>
               ))}
             </div>
@@ -258,33 +321,73 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
         <Card className="p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Order Baru Masuk</h2>
-            <Badge variant="secondary" className="w-fit">Belum Mulai</Badge>
+            <Badge variant="secondary" className="w-fit">
+              Belum Mulai
+            </Badge>
           </div>
 
           {receivedPaid.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tidak ada order baru masuk.</p>
+            <p className="text-sm text-muted-foreground">
+              Tidak ada order baru masuk.
+            </p>
           ) : (
             <div className="space-y-3">
               {receivedPaid.map((o) => (
-                <Card key={o.id} className="p-3 sm:p-4 space-y-3 border-l-4 border-l-accent">
+                <Card
+                  key={o.id}
+                  className="p-3 sm:p-4 space-y-3 border-l-4 border-l-accent"
+                >
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <div>
                       <div className="font-semibold">{o.order_number}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">{formatWaktuID(o.created_at)} • {timeAgoShort(o.created_at)}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground mt-1">Meja {o.tables?.table_number ?? "-"} • {o.payment_method === "cash" ? "Tunai" : "Midtrans"}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">
+                        {formatWaktuID(o.created_at)} •{" "}
+                        {timeAgoShort(o.created_at)}
+                      </div>
+                      <div className="text-xs sm:text-sm text-muted-foreground mt-1">
+                        Meja {o.tables?.table_number ?? "-"} •{" "}
+                        {o.payment_method === "cash" ? "Tunai" : "Midtrans"}
+                      </div>
                     </div>
-                    <div className="text-lg sm:text-xl font-bold text-primary">Rp {Number(o.total_amount).toLocaleString("id-ID")}</div>
+                    <div className="text-lg sm:text-xl font-bold text-primary">
+                      Rp {Number(o.total_amount).toLocaleString("id-ID")}
+                    </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <Link href={`/admin/print/kitchen/${o.order_number}`} target="_blank" className="flex-1">
-                      <Button variant="secondary" className="w-full text-xs sm:text-sm">Print Dapur</Button>
+                    <Link
+                      href={`/admin/print/kitchen/${o.order_number}`}
+                      target="_blank"
+                      className="flex-1"
+                    >
+                      <Button
+                        variant="secondary"
+                        className="w-full text-xs sm:text-sm"
+                      >
+                        Print Dapur
+                      </Button>
                     </Link>
 
-                    <Link href={`/admin/print/bar/${o.order_number}`} target="_blank" className="flex-1">
-                      <Button variant="secondary" className="w-full text-xs sm:text-sm">Print Bar</Button>
+                    <Link
+                      href={`/admin/print/bar/${o.order_number}`}
+                      target="_blank"
+                      className="flex-1"
+                    >
+                      <Button
+                        variant="secondary"
+                        className="w-full text-xs sm:text-sm"
+                      >
+                        Print Bar
+                      </Button>
                     </Link>
 
-                    <Button onClick={() => void setFulfillmentStatus(o.id, "preparing")} className="flex-1">Mulai Buat</Button>
+                    <Button
+                      onClick={() =>
+                        void setFulfillmentStatus(o.id, "preparing")
+                      }
+                      className="flex-1"
+                    >
+                      Mulai Buat
+                    </Button>
                   </div>
                 </Card>
               ))}
@@ -295,33 +398,71 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
         <Card className="p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Sedang Dibuat</h2>
-            <Badge variant="secondary" className="w-fit">Dalam Proses</Badge>
+            <Badge variant="secondary" className="w-fit">
+              Dalam Proses
+            </Badge>
           </div>
 
           {preparing.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tidak ada order yang sedang dibuat.</p>
+            <p className="text-sm text-muted-foreground">
+              Tidak ada order yang sedang dibuat.
+            </p>
           ) : (
             <div className="space-y-3">
               {preparing.map((o) => (
-                <Card key={o.id} className="p-3 sm:p-4 space-y-3 border-l-4 border-l-secondary">
+                <Card
+                  key={o.id}
+                  className="p-3 sm:p-4 space-y-3 border-l-4 border-l-secondary"
+                >
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <div>
                       <div className="font-semibold">{o.order_number}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">{formatWaktuID(o.created_at)} • {timeAgoShort(o.created_at)}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground mt-1">Meja {o.tables?.table_number ?? "-"} • {o.payment_method === "cash" ? "Tunai" : "Midtrans"}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">
+                        {formatWaktuID(o.created_at)} •{" "}
+                        {timeAgoShort(o.created_at)}
+                      </div>
+                      <div className="text-xs sm:text-sm text-muted-foreground mt-1">
+                        Meja {o.tables?.table_number ?? "-"} •{" "}
+                        {o.payment_method === "cash" ? "Tunai" : "Midtrans"}
+                      </div>
                     </div>
-                    <div className="text-lg sm:text-xl font-bold text-primary">Rp {Number(o.total_amount).toLocaleString("id-ID")}</div>
+                    <div className="text-lg sm:text-xl font-bold text-primary">
+                      Rp {Number(o.total_amount).toLocaleString("id-ID")}
+                    </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <Link href={`/admin/print/kitchen/${o.order_number}`} target="_blank" className="flex-1">
-                      <Button variant="secondary" className="w-full text-xs sm:text-sm">Print Dapur</Button>
+                    <Link
+                      href={`/admin/print/kitchen/${o.order_number}`}
+                      target="_blank"
+                      className="flex-1"
+                    >
+                      <Button
+                        variant="secondary"
+                        className="w-full text-xs sm:text-sm"
+                      >
+                        Print Dapur
+                      </Button>
                     </Link>
 
-                    <Link href={`/admin/print/bar/${o.order_number}`} target="_blank" className="flex-1">
-                      <Button variant="secondary" className="w-full text-xs sm:text-sm">Print Bar</Button>
+                    <Link
+                      href={`/admin/print/bar/${o.order_number}`}
+                      target="_blank"
+                      className="flex-1"
+                    >
+                      <Button
+                        variant="secondary"
+                        className="w-full text-xs sm:text-sm"
+                      >
+                        Print Bar
+                      </Button>
                     </Link>
 
-                    <Button onClick={() => void setFulfillmentStatus(o.id, "served")} className="flex-1">Sudah Selesai</Button>
+                    <Button
+                      onClick={() => void setFulfillmentStatus(o.id, "served")}
+                      className="flex-1"
+                    >
+                      Sudah Selesai
+                    </Button>
                   </div>
                 </Card>
               ))}
@@ -332,24 +473,43 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
         <Card className="p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Order Aktif</h2>
-            <Badge variant="secondary" className="w-fit">Menunggu</Badge>
+            <Badge variant="secondary" className="w-fit">
+              Menunggu
+            </Badge>
           </div>
 
           {activeServed.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tidak ada order aktif.</p>
+            <p className="text-sm text-muted-foreground">
+              Tidak ada order aktif.
+            </p>
           ) : (
             <div className="space-y-3">
               {activeServed.map((o) => (
-                <Card key={o.id} className="p-3 sm:p-4 space-y-3 border-l-4 border-l-primary">
+                <Card
+                  key={o.id}
+                  className="p-3 sm:p-4 space-y-3 border-l-4 border-l-primary"
+                >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
                       <div className="font-semibold">{o.order_number}</div>
-                      <div className="text-xs sm:text-sm text-muted-foreground">Meja {o.tables?.table_number ?? "-"} • {o.payment_method === "cash" ? "Tunai" : "Midtrans"} • Sudah Disajikan</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">
+                        Meja {o.tables?.table_number ?? "-"} •{" "}
+                        {o.payment_method === "cash" ? "Tunai" : "Midtrans"} •
+                        Sudah Disajikan
+                      </div>
                     </div>
-                    <div className="text-lg sm:text-xl font-bold text-primary">Rp {Number(o.total_amount).toLocaleString("id-ID")}</div>
+                    <div className="text-lg sm:text-xl font-bold text-primary">
+                      Rp {Number(o.total_amount).toLocaleString("id-ID")}
+                    </div>
                   </div>
 
-                  <Button variant="outline" onClick={() => completeOrder(o.order_number)} className="w-full">Selesaikan & Lepas Meja</Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => completeOrder(o.order_number)}
+                    className="w-full"
+                  >
+                    Selesaikan & Lepas Meja
+                  </Button>
                 </Card>
               ))}
             </div>
