@@ -25,7 +25,8 @@ export default function StockAlertBadge({
   const [count, setCount] = useState(0);
 
   const load = async () => {
-    const res = await fetch(`/api/admin/alerts?t=${Date.now()}`, {
+    // server route: src/app/api/admin/alert/route.ts -> /api/admin/alert
+    const res = await fetch(`/api/admin/alert?t=${Date.now()}`, {
       cache: "no-store",
     });
     if (!res.ok) return;
