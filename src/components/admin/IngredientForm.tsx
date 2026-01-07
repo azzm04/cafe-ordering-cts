@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { ArrowLeft } from "lucide-react"
 
 type Ingredient = {
   id: string
@@ -90,6 +91,14 @@ export default function IngredientForm({
 
   return (
     <div className="space-y-6">
+      <button
+        onClick={() => router.push("/admin/ingredients")}
+        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Kembali
+      </button>
+
       {/* Error Message */}
       {error ? (
         <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
