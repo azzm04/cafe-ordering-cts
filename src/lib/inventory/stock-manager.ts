@@ -230,31 +230,49 @@ export async function updateMenuAvailabilityForIngredient(ingredientId: string) 
   }
 }
 
-export async function computeMaxPortionsForMenus(menuIds: string[]) : Promise<Map<string, number | null>> {
+type RecipeWithIngredientRow = {
+  menu_item_id: string;
+  quantity_needed: number | string; // numeric di DB bisa string
+  ingredients: {
+    id: string;
+    current_stock: number | string; // numeric bisa string
+  } | null;
+};
+
+function toNumberSafe(v: number | string): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+export async function computeMaxPortionsForMenus(
+  menuIds: string[]
+): Promise<Map<string, number | null>> {
   const result = new Map<string, number | null>();
   if (!menuIds || menuIds.length === 0) return result;
 
   const { data: recipes, error } = await supabaseAdmin
     .from("menu_recipes")
-    .select("menu_item_id, quantity_needed, ingredients:ingredient_id (id, current_stock)")
+    .select(
+      "menu_item_id, quantity_needed, ingredients:ingredient_id (id, current_stock)"
+    )
     .in("menu_item_id", menuIds)
-    .returns<any[]>();
+    .returns<RecipeWithIngredientRow[]>();
 
   if (error) {
     console.error("computeMaxPortionsForMenus: failed to load recipes", error);
-    // Return nulls so callers don't block on this non-critical failure
     for (const id of menuIds) result.set(id, null);
     return result;
   }
 
-  const grouped = new Map<string, any[]>();
+  const grouped = new Map<string, RecipeWithIngredientRow[]>();
   for (const r of recipes ?? []) {
-    grouped.set(r.menu_item_id, (grouped.get(r.menu_item_id) ?? []).concat(r));
+    grouped.set(r.menu_item_id, [...(grouped.get(r.menu_item_id) ?? []), r]);
   }
 
   for (const id of menuIds) {
     const recs = grouped.get(id) ?? [];
-    if (!recs || recs.length === 0) {
+    if (recs.length === 0) {
+      // menu belum punya resep -> null (policy kamu)
       result.set(id, null);
       continue;
     }
@@ -263,18 +281,25 @@ export async function computeMaxPortionsForMenus(menuIds: string[]) : Promise<Ma
     let invalid = false;
 
     for (const r of recs) {
-      const need = Number(r.quantity_needed);
-      const stock = r.ingredients?.current_stock ?? 0;
-      const stockNum = Number(stock);
+      // join ingredient bisa null
+      if (!r.ingredients) {
+        invalid = true;
+        break;
+      }
+
+      const need = toNumberSafe(r.quantity_needed);
+      const stock = toNumberSafe(r.ingredients.current_stock);
+
       if (!Number.isFinite(need) || need <= 0) {
         invalid = true;
         break;
       }
-      if (!Number.isFinite(stockNum)) {
+      if (!Number.isFinite(stock)) {
         invalid = true;
         break;
       }
-      const portions = Math.floor(stockNum / need);
+
+      const portions = Math.floor(stock / need);
       if (portions < minPortions) minPortions = portions;
     }
 
