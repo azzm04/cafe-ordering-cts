@@ -1,7 +1,11 @@
-import AdminDashboardClient from "./AdminDashboardClient";
+import { redirect } from "next/navigation";
 import { getAdminRolePage } from "@/lib/admin-auth-page";
 
-export default async function AdminPage() {
+export default async function AdminIndexPage() {
   const role = await getAdminRolePage();
-  return <AdminDashboardClient role={role} />;
+
+  if (role === "owner") redirect("/admin/owner");
+  if (role === "kasir") redirect("/admin/kasir");
+
+  redirect("/admin/login");
 }

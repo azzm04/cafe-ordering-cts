@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { AdminRole } from "@/lib/admin-auth";
+import AlertsDropdown from "@/components/admin/AlertsDropdown";
+import StockAlertBadge from "@/components/admin/StockAlertBadge";
 import DashboardOperationalPanel, { type ActiveOrder } from "@/components/admin/dashboard/DashboardOperationalPanel";
 
 type TableRow = {
@@ -25,7 +26,7 @@ function safeMessage(json: unknown, fallback: string) {
   return fallback;
 }
 
-export default function AdminDashboardClient({ role }: { role: AdminRole | null }) {
+export default function OwnerDashboardClient() {
   const [tables, setTables] = useState<TableRow[]>([]);
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,25 +55,40 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6 lg:space-y-8">
-        {/* Header Kasir */}
+        {/* Header Owner */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Dashboard Kasir</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Kelola meja, pantau order, dan proses pembayaran</p>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Dashboard Owner</h1>
+            <p className="mt-2 text-sm text-muted-foreground">Pantau operasional & akses cepat ke fitur manajemen</p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            {role === "owner" && (
-              <Link href="/admin/owner" className="flex-1 sm:flex-none">
-                <Button variant="outline" className="w-full sm:w-auto bg-transparent">
-                  Ke Dashboard Owner
-                </Button>
-              </Link>
-            )}
-
             <Button variant="secondary" onClick={fetchOverview} disabled={loading} className="flex-1 sm:flex-none">
               {loading ? "Loading..." : "Refresh"}
             </Button>
+
+            <Link href="/admin/menu" className="flex-1 sm:flex-none">
+              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+                Kelola Menu
+              </Button>
+            </Link>
+
+            <Link href="/admin/ingredients" className="flex-1 sm:flex-none">
+              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+                Ingredients
+              </Button>
+            </Link>
+
+            <Link href="/admin/laporan" className="flex-1 sm:flex-none">
+              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+                Laporan
+              </Button>
+            </Link>
+
+            <div className="flex items-center gap-2">
+              <AlertsDropdown />
+              <StockAlertBadge />
+            </div>
 
             <Link href="/admin/history" className="flex-1 sm:flex-none">
               <Button variant="outline" className="w-full sm:w-auto bg-transparent">
@@ -93,7 +109,7 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
           </div>
         </div>
 
-        {/* Konten */}
+        {/* Konten operasional (reuse kasir content) */}
         <DashboardOperationalPanel tables={tables} orders={orders} onRefresh={fetchOverview} />
       </div>
     </main>
