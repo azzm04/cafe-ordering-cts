@@ -80,7 +80,14 @@ export async function POST(req: Request) {
 
     // 3) Deduct stok (kalau belum pernah)
     if (!alreadyDeducted) {
-      await deductStockForOrder(order.id);
+      try {
+        await deductStockForOrder(order.id);
+      } catch (err: unknown) {
+        console.error("deductStockForOrder failed", err);
+        const msg = getErrorMessage(err);
+        // Return 400 so caller sees specific reason (e.g., missing recipe or insufficient stock)
+        return NextResponse.json({ message: msg }, { status: 400 });
+      }
     }
 
     // 4) Update order jadi paid (dan set fulfillment minimal received kalau masih pending flow)
@@ -107,6 +114,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ ok: true, deducted: !alreadyDeducted });
   } catch (e: unknown) {
+    console.error("confirm-cash error", e);
     return NextResponse.json(
       { message: "Gagal konfirmasi tunai", details: getErrorMessage(e) },
       { status: 500 }
