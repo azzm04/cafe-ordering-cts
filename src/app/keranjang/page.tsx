@@ -87,9 +87,14 @@ export default function KeranjangPage() {
                 <Button
                   variant="secondary"
                   onClick={() => updateQuantity(it.id, it.quantity + 1)}
+                  disabled={typeof it.max_portions === "number" && it.quantity >= it.max_portions}
                 >
                   +
                 </Button>
+                {typeof it.max_portions === "number" && it.quantity >= it.max_portions ? (
+                  <div className="text-sm text-muted-foreground">Maksimal {it.max_portions} porsi</div>
+                ) : null
+                }
               </div>
 
               {/* Notes */}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useCartStore } from "@/store/cartStore";
 import MenuHeader from "@/components/menu/MenuHeader";
 import MenuTabs from "@/components/menu/MenuTabs";
@@ -66,12 +67,20 @@ export default function MenuPage() {
         expandedGroups={expandedGroups}
         onToggleGroup={toggleGroup}
         onAddItem={(it) => {
+          const state = useCartStore.getState();
+          const existingQty = state.items.find((x) => x.id === it.id)?.quantity ?? 0;
+          if (typeof it.max_portions === "number" && existingQty + 1 > it.max_portions) {
+            toast.error(`Stok tidak cukup. Maksimal ${it.max_portions} porsi.`);
+            return;
+          }
+
           addItem({
             id: it.id,
             name: it.name,
             price: it.price,
             quantity: 1,
             image_url: it.image_url ?? undefined,
+            max_portions: it.max_portions ?? null,
           });
         }}
       />

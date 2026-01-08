@@ -135,12 +135,6 @@ export default function AdminMenuClient() {
               Login sebagai: <span className="font-semibold">{role}</span>
             </p>
           )}
-
-          <div className="flex gap-2">
-            <Link href="/admin" className="inline-flex">
-              <span className="text-xs underline text-muted-foreground">Kembali ke Dashboard</span>
-            </Link>
-          </div>
         </Card>
 
         <MenuGrid

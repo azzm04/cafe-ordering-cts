@@ -25,6 +25,31 @@ export async function POST(req: Request) {
   if (!body.tableNumber) return NextResponse.json({ message: "tableNumber required" }, { status: 400 });
   if (!body.items?.length) return NextResponse.json({ message: "items required" }, { status: 400 });
 
+  // validate requested quantities against max_portions per menu (if available)
+  try {
+    const menuIds = [...new Set(body.items.map((it) => it.menu_item_id))];
+    const { computeMaxPortionsForMenus } = await import("@/lib/inventory/stock-manager");
+    const maxMap = await computeMaxPortionsForMenus(menuIds);
+
+    const problems: Array<{ menu_item_id: string; requested: number; maxAvailable: number | null }> = [];
+
+    for (const it of body.items) {
+      const max = maxMap.get(it.menu_item_id) ?? null;
+      if (typeof max === "number") {
+        if (it.quantity > max) {
+          problems.push({ menu_item_id: it.menu_item_id, requested: it.quantity, maxAvailable: max });
+        }
+      }
+    }
+
+    if (problems.length > 0) {
+      return NextResponse.json({ message: "Stok tidak cukup", items: problems }, { status: 400 });
+    }
+  } catch (err) {
+    console.error("orders: computeMaxPortionsForMenus failed", err);
+    // proceed without strict validation if the check fails
+  }
+
   const { data: table, error: tableErr } = await supabaseServer
     .from("tables")
     .select("*")

@@ -7,6 +7,7 @@ export interface CartItem {
   quantity: number;
   notes?: string;
   image_url?: string;
+  max_portions?: number | null;
 }
 
 interface CartStore {
@@ -46,7 +47,15 @@ export const useCartStore = create<CartStore>((set, get) => ({
   updateQuantity: (id, quantity) =>
     set((s) => ({
       items: s.items.map((x) =>
-        x.id === id ? { ...x, quantity: Math.max(1, quantity) } : x
+        x.id === id
+          ? {
+              ...x,
+              quantity: Math.min(
+                Math.max(1, quantity),
+                x.max_portions ?? Number.POSITIVE_INFINITY
+              ),
+            }
+          : x
       ),
     })),
 

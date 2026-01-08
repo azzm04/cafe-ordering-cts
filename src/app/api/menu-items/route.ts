@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
+import { computeMaxPortionsForMenus } from "@/lib/inventory/stock-manager";
 
 type Category = {
   id: string;
@@ -34,6 +35,7 @@ type MenuItemEnriched = Omit<MenuItemRaw, "categories"> & {
         parent_category: { name: string } | null;
       })
     | null;
+  max_portions?: number | null;
 };
 
 function jsonNoStore<T>(data: T, init?: number | ResponseInit) {
@@ -118,6 +120,15 @@ export async function GET(req: Request) {
     categories: row.categories?.[0] ?? null,
   }));
 
+  // compute max_portions for menus to show to customers
+  const menuIds = rawData.map((r) => r.id);
+  let maxMap = new Map<string, number | null>();
+  try {
+    maxMap = await computeMaxPortionsForMenus(menuIds);
+  } catch (err) {
+    console.error("menu-items: computeMaxPortionsForMenus failed", err);
+  }
+
   if (rawData.length > 0) {
     const parentIds = [
       ...new Set(
@@ -150,6 +161,7 @@ export async function GET(req: Request) {
                 : null,
             }
           : null,
+        max_portions: maxMap.get(item.id) ?? null,
       }));
 
       return jsonNoStore<{ items: MenuItemEnriched[] }>({ items: enrichedData });
@@ -161,6 +173,7 @@ export async function GET(req: Request) {
     categories: item.categories
       ? { ...item.categories, parent_category: null }
       : null,
+    max_portions: maxMap.get(item.id) ?? null,
   }));
 
   return jsonNoStore<{ items: MenuItemEnriched[] }>({ items: fallbackData });

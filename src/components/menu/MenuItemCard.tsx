@@ -39,6 +39,13 @@ function MenuItemCardBase({
             {item.description ? (
               <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{item.description}</p>
             ) : null}
+            {item.max_portions !== null && item.max_portions !== undefined ? (
+              item.max_portions === 0 ? (
+                <div className="text-xs text-destructive font-medium">Habis</div>
+              ) : (
+                <div className="text-xs text-muted-foreground">Tersisa: {item.max_portions} porsi</div>
+              )
+            ) : null}
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-2">
@@ -50,6 +57,7 @@ function MenuItemCardBase({
                 onAdd();
                 toast.success(`${item.name} ditambahkan`);
               }}
+              disabled={item.max_portions === 0}
               className="bg-primary hover:bg-primary/90 font-semibold text-xs sm:text-sm"
             >
               Tambah

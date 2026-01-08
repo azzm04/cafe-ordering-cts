@@ -8,6 +8,7 @@ export type MenuItemRow = {
   is_available: boolean;
   created_at: string;
   variant_group: string | null;
+  max_portions?: number | null;
 };
 
 export const CATEGORY = {

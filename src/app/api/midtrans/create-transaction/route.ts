@@ -100,6 +100,26 @@ export async function POST(req: Request) {
     const totalAmount = body.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
     const orderNumber = generateOrderNumber();
 
+    // validate requested quantities per menu
+    try {
+      const menuIds = [...new Set(body.items.map((it) => it.menu_item_id))];
+      const { computeMaxPortionsForMenus } = await import("@/lib/inventory/stock-manager");
+      const maxMap = await computeMaxPortionsForMenus(menuIds);
+
+      const problems: Array<{ menu_item_id: string; requested: number; maxAvailable: number | null }> = [];
+      for (const it of body.items) {
+        const max = maxMap.get(it.menu_item_id) ?? null;
+        if (typeof max === "number" && it.quantity > max) {
+          problems.push({ menu_item_id: it.menu_item_id, requested: it.quantity, maxAvailable: max });
+        }
+      }
+
+      if (problems.length > 0) return jsonNoStore({ message: "Stok tidak cukup", items: problems }, { status: 400 });
+    } catch (err) {
+      console.error("midtrans:create-transaction: computeMaxPortionsForMenus failed", err);
+      // proceed without blocking if checker fails
+    }
+
     // create order
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
