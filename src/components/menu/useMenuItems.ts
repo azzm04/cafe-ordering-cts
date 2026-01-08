@@ -102,6 +102,7 @@ export function useMenuItems({
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "menu_items" }, () => void refresh())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "menu_items" }, () => void refresh())
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "menu_items" }, () => void refresh())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "ingredients" }, () => void refresh())
       .subscribe();
 
     return () => {

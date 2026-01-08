@@ -103,7 +103,7 @@ export async function POST(req: Request) {
     // validate requested quantities per menu
     try {
       const menuIds = [...new Set(body.items.map((it) => it.menu_item_id))];
-      const { computeMaxPortionsForMenus } = await import("@/lib/inventory/stock-manager");
+      const { computeMaxPortionsForMenus } = await import("@/lib/inventory/index");
       const maxMap = await computeMaxPortionsForMenus(menuIds);
 
       const problems: Array<{ menu_item_id: string; requested: number; maxAvailable: number | null }> = [];

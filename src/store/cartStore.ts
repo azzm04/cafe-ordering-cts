@@ -33,9 +33,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
     set((state) => {
       const existing = state.items.find((x) => x.id === item.id);
       if (existing) {
+        const max = existing.max_portions ?? item.max_portions ?? Number.POSITIVE_INFINITY;
+        const newQty = Math.min(existing.quantity + item.quantity, max);
         return {
           items: state.items.map((x) =>
-            x.id === item.id ? { ...x, quantity: x.quantity + item.quantity } : x
+            x.id === item.id ? { ...x, quantity: newQty } : x
           ),
         };
       }

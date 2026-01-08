@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { MenuItemRow } from "@/components/menu/constants";
 import { formatRupiah } from "@/components/menu/constants";
+import { useCartStore } from "@/store/cartStore";
 
 function MenuItemCardBase({
   item,
@@ -13,7 +14,8 @@ function MenuItemCardBase({
 }: {
   item: MenuItemRow;
   onAdd: () => void;
-}) {
+}) {  const existingQty = useCartStore((s) => s.items.find((x) => x.id === item.id)?.quantity ?? 0);
+  const reachedMax = typeof item.max_portions === "number" && existingQty >= item.max_portions;
   return (
     <div className="p-4 sm:p-5">
       <div className="flex gap-3 sm:gap-4">
@@ -54,10 +56,9 @@ function MenuItemCardBase({
             <Button
               size="sm"
               onClick={() => {
-                onAdd();
-                toast.success(`${item.name} ditambahkan`);
+                void onAdd();
               }}
-              disabled={item.max_portions === 0}
+              disabled={item.max_portions === 0 || reachedMax}
               className="bg-primary hover:bg-primary/90 font-semibold text-xs sm:text-sm"
             >
               Tambah

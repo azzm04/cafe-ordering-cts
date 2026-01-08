@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/cartStore";
 
@@ -86,7 +87,35 @@ export default function KeranjangPage() {
 
                 <Button
                   variant="secondary"
-                  onClick={() => updateQuantity(it.id, it.quantity + 1)}
+                  onClick={async () => {
+                    // prepare current cart items
+                    const items = useCartStore.getState().items.map((x) => ({ menu_item_id: x.id, quantity: x.quantity }));
+                    const idx = items.findIndex((x) => x.menu_item_id === it.id);
+                    if (idx >= 0) items[idx].quantity = items[idx].quantity + 1;
+
+                    try {
+                      const res = await fetch('/api/cart/availability', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ items }),
+                      });
+                      const json = await res.json();
+                      if (!res.ok || !json?.ok) {
+                        if (json?.shortages && json.shortages.length > 0) {
+                          const s = json.shortages[0];
+                          toast.error(`Stok tidak cukup untuk bahan ${s.ingredient_id}. Tersedia: ${s.available}, dibutuhkan: ${s.needed}`);
+                        } else {
+                          toast.error('Stok tidak cukup');
+                        }
+                        return;
+                      }
+
+                      updateQuantity(it.id, it.quantity + 1);
+                    } catch (err) {
+                      console.error('availability check failed', err);
+                      toast.error('Gagal cek stok');
+                    }
+                  }}
                   disabled={typeof it.max_portions === "number" && it.quantity >= it.max_portions}
                 >
                   +

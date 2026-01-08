@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { updateMenuAvailabilityForIngredient } from "@/lib/inventory/stock-manager";
+import { updateMenuAvailabilityForIngredient } from "@/lib/inventory/index";
 
 type IngredientRow = {
   id: string;

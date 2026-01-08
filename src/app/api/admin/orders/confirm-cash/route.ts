@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { deductStockForOrder } from "@/lib/inventory/stock-manager";
+import { deductStockForOrder } from "@/lib/inventory/index";
 
 type Body = { orderNumber: string };
 

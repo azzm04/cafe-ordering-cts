@@ -25,16 +25,12 @@ export default function MenuPage() {
     if (tableNumber == null) router.replace("/pilih-meja");
   }, [tableNumber, router]);
 
-  const {
-    loading,
-    items,
-    expandedGroups,
-    toggleGroup,
-    refresh,
-  } = useMenuItems({
-    categoryId: CATEGORY[activeTab],
-    query,
-  });
+  const { loading, items, expandedGroups, toggleGroup, refresh } = useMenuItems(
+    {
+      categoryId: CATEGORY[activeTab],
+      query,
+    }
+  );
 
   if (tableNumber == null) {
     return (
@@ -66,22 +62,69 @@ export default function MenuPage() {
         items={items}
         expandedGroups={expandedGroups}
         onToggleGroup={toggleGroup}
-        onAddItem={(it) => {
+        onAddItem={async (it) => {
+          // perform server-side availability check including all cart items
           const state = useCartStore.getState();
-          const existingQty = state.items.find((x) => x.id === it.id)?.quantity ?? 0;
-          if (typeof it.max_portions === "number" && existingQty + 1 > it.max_portions) {
-            toast.error(`Stok tidak cukup. Maksimal ${it.max_portions} porsi.`);
-            return;
-          }
+          const currentItems = state.items.map((x) => ({
+            menu_item_id: x.id,
+            quantity: x.quantity,
+          }));
 
-          addItem({
-            id: it.id,
-            name: it.name,
-            price: it.price,
-            quantity: 1,
-            image_url: it.image_url ?? undefined,
-            max_portions: it.max_portions ?? null,
-          });
+          // build proposed items: increment the target
+          const proposed = [...currentItems];
+          const idx = proposed.findIndex((x) => x.menu_item_id === it.id);
+          if (idx >= 0) proposed[idx].quantity = proposed[idx].quantity + 1;
+          else proposed.push({ menu_item_id: it.id, quantity: 1 });
+
+          try {
+            const res = await fetch("/api/cart/availability", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items: proposed }),
+            });
+            const json = await res.json();
+            if (!res.ok || !json?.ok) {
+              // Handling jika limit per item tercapai (misal: max 2 porsi per orang)
+              if (json?.items && Array.isArray(json.items)) {
+                toast.error("Batas pesanan tercapai", {
+                  description: `Maaf, Anda hanya bisa memesan maksimal ${
+                    json.items[0]?.maxAvailable ?? "terbatas"
+                  } porsi untuk menu ini.`,
+                });
+              }
+              // Handling jika stok bahan habis
+              else if (json?.shortages && json.shortages.length > 0) {
+
+                toast("Yah, stok menipis 😔", {
+                  description: `Mohon maaf, stok bahan untuk membuat "${it.name}" saat ini tidak mencukupi untuk menambah porsi lagi.`,
+                  action: {
+                    label: "Oke",
+                    onClick: () => console.log("User acknowledged"),
+                  },
+                });
+              }
+              else {
+                toast.error("Gagal menambah menu", {
+                  description:
+                    "Terjadi kesalahan saat mengecek ketersediaan stok.",
+                });
+              }
+              return;
+            }
+
+            addItem({
+              id: it.id,
+              name: it.name,
+              price: it.price,
+              quantity: 1,
+              image_url: it.image_url ?? undefined,
+              max_portions: it.max_portions ?? null,
+            });
+            toast.success(`${it.name} ditambahkan`);
+          } catch (err) {
+            console.error("availability check failed", err);
+            toast.error("Gagal cek stok");
+          }
         }}
       />
     </main>

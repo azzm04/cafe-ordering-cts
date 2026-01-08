@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sha512Hex } from "@/lib/midtrans-signature";
-import { deductStockForOrder } from "@/lib/inventory/stock-manager";
+import { deductStockForOrder } from "@/lib/inventory/index";
 
 type MidtransNotif = {
   order_id: string;
