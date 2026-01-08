@@ -57,7 +57,7 @@ export function NotaAutoRefresh({
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    // kalau sudah final, stop polling
+    // klo udah final, stop polling
     if (stopped) return;
 
     const tick = async () => {
@@ -75,7 +75,6 @@ export function NotaAutoRefresh({
         );
 
         if (!res.ok) {
-          // kalau error sementara, biarkan next tick coba lagi
           setLastCheck(formatTimeHHmmss(new Date()));
           return;
         }
@@ -86,8 +85,6 @@ export function NotaAutoRefresh({
         setFulfillment(json.fulfillment_status);
         setLastCheck(formatTimeHHmmss(new Date()));
 
-        // ✅ kalau ada perubahan, refresh Server Component page agar UI update
-        // (router.refresh aman dipanggil tiap tick juga, tapi ini lebih hemat)
         if (
           json.payment_status !== payment ||
           json.fulfillment_status !== fulfillment
@@ -95,7 +92,6 @@ export function NotaAutoRefresh({
           router.refresh();
         }
 
-        // ✅ kalau sudah final setelah update, hentikan
         if (isFinal(json.payment_status, json.fulfillment_status)) {
           return;
         }

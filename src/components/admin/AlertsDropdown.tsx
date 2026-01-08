@@ -131,7 +131,6 @@ export default function AlertsDropdown({ refreshMs = 15000 }: { refreshMs?: numb
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ refresh pas dropdown dibuka
   useEffect(() => {
     if (open) void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps

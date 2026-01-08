@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 export function PrintAuto() {
   useEffect(() => {
-    // kasih sedikit delay supaya layout kebentuk dulu
+    // kasih dikit delay biar layout kebentuk dulu
     const t = window.setTimeout(() => window.print(), 300);
     return () => window.clearTimeout(t);
   }, []);

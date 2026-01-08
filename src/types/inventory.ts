@@ -1,5 +1,3 @@
-// src/types/inventory.ts
-
 export type StockStatus = "out_of_stock" | "low_stock" | "normal";
 
 export type Ingredient = {
@@ -29,12 +27,35 @@ export type ApiErrorResponse = {
   message: string;
 };
 
-// ✅ ini yang kamu butuhkan untuk edit page
 export type GetIngredientResponse = {
   ingredient: Ingredient;
 };
 
-// opsional, kalau kamu pakai untuk list
 export type GetIngredientsResponse = {
   items: IngredientSummary[];
+};
+
+
+export type IngredientRow = {
+  id: string;
+  name: string;
+  unit: string;
+  current_stock: number | string;
+  min_stock: number | string;
+};
+
+export type MenuItemRow = {
+  id: string;
+  name: string;
+  price: number;
+  is_available: boolean;
+  is_archived: boolean;
+};
+
+export type MenuRecipeRow = {
+  id: string;
+  menu_item_id: string;
+  ingredient_id: string;
+  quantity_needed: number;
+  ingredients?: IngredientRow | null;
 };

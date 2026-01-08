@@ -1,5 +1,3 @@
-// src/types/history.ts
-
 export type PaymentStatus = "pending" | "paid" | "failed" | "expired";
 export type OrderStatus = "received" | "served" | "completed";
 export type PaymentMethod = "cash" | "qris";

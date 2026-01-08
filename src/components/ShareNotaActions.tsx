@@ -15,7 +15,6 @@ type Props = {
 export function ShareNotaActions({ orderNumber, tableNumber }: Props) {
   const [copied, setCopied] = useState(false);
   
-  // ✅ State baru untuk menangani tampilan pesan feedback di bawah tombol
   const [state, setState] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const handleShare = async () => {
@@ -26,7 +25,6 @@ export function ShareNotaActions({ orderNumber, tableNumber }: Props) {
     const title = `Nota Makan - Meja ${tableNumber ?? "-"}`;
     const text = `Ini nota digital makan kita tadi (Order: ${orderNumber}).`;
 
-    // 1. Coba Native Share (HP)
     if (navigator.share) {
       try {
         await navigator.share({ title, text, url });
@@ -36,13 +34,11 @@ export function ShareNotaActions({ orderNumber, tableNumber }: Props) {
       }
     }
 
-    // 2. Fallback: Copy Link (Desktop/Browser lama)
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       toast.success("Link nota berhasil disalin!");
       
-      // ✅ Set state success agar muncul alert hijau di bawah
       setState({ type: "success", message: "Link berhasil disalin!" });
 
       setTimeout(() => {
@@ -51,7 +47,6 @@ export function ShareNotaActions({ orderNumber, tableNumber }: Props) {
       }, 3000);
     } catch {
       toast.error("Gagal menyalin link");
-      // ✅ Set state error agar muncul alert merah
       setState({ type: "error", message: "Gagal menyalin link browser." });
     }
   };

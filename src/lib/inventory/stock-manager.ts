@@ -5,17 +5,17 @@ type DbNumeric = number | string;
 
 type RecipeRow = {
   ingredient_id: string;
-  quantity_needed: DbNumeric; // numeric -> bisa string
+  quantity_needed: DbNumeric; 
 };
 
 type OrderItemRow = {
   menu_item_id: string;
-  quantity: DbNumeric; // int4 -> biasanya number, tapi amanin
+  quantity: DbNumeric; 
 };
 
 type IngredientRow = {
   id: string;
-  current_stock: DbNumeric; // numeric -> bisa string
+  current_stock: DbNumeric;
 };
 
 function toNumber(v: DbNumeric): number {
@@ -29,7 +29,6 @@ function assertPositive(n: number, msg: string) {
 }
 
 export async function deductStockForOrder(orderId: string) {
-  // 1) ambil order items
   const { data: items, error: itemsErr } = await supabaseAdmin
     .from("order_items")
     .select("menu_item_id, quantity")
@@ -39,7 +38,6 @@ export async function deductStockForOrder(orderId: string) {
   if (itemsErr) throw new Error(itemsErr.message);
   if (!items || items.length === 0) return;
 
-  // 2) akumulasi kebutuhan ingredient: ingredient_id -> totalQtyNeeded
   const neededMap = new Map<string, number>();
 
   for (const it of items) {
@@ -54,7 +52,6 @@ export async function deductStockForOrder(orderId: string) {
 
     if (recipeErr) throw new Error(recipeErr.message);
 
-    // ✅ MVP strict: kalau menu belum ada resep -> FAIL biar ketahuan
     if (!recipe || recipe.length === 0) {
       throw new Error(`Resep belum diatur untuk menu_item_id=${it.menu_item_id}`);
     }
@@ -70,7 +67,6 @@ export async function deductStockForOrder(orderId: string) {
 
   if (neededMap.size === 0) return;
 
-  // 3) kurangi stok + catat stock_movements
   for (const [ingredientId, qtyNeed] of neededMap.entries()) {
     const { data: ing, error: ingErr } = await supabaseAdmin
       .from("ingredients")
@@ -103,7 +99,7 @@ export async function deductStockForOrder(orderId: string) {
       stock_before: before,
       stock_after: after,
       reason: "order_deduction",
-      reference_id: orderId, // pakai UUID order.id
+      reference_id: orderId, // INGET INI PAKE UUID order.id sering error karena type-nya beda
     });
 
     if (mvErr) throw new Error(mvErr.message);

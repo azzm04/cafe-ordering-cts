@@ -70,7 +70,7 @@ export function FulfillmentTimeline({ currentStatus }: Props) {
                 <div
                   className={[
                     "relative flex items-center justify-center transition-all duration-500 border-4 bg-background",
-                    // Mobile: w-10 h-10, Desktop: w-14 h-14
+                    // NOTE Ukuran Mobile: w-10 h-10, Ukuran Desktop: w-14 h-14 
                     "w-10 h-10 text-lg sm:w-14 sm:h-14 sm:text-2xl rounded-full",
                     isActive
                       ? "bg-primary border-primary text-primary-foreground scale-110 shadow-lg ring-2 sm:ring-4 ring-primary/20"
