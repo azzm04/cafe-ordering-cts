@@ -1,22 +1,26 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import type { MenuItemRow } from "@/components/menu/constants";
 import MenuGroup from "@/components/menu/MenuGroup";
+import { Package, Loader2 } from "lucide-react";
 
-export default function MenuGroupList({
-  loading,
-  items,
-  expandedGroups,
-  onToggleGroup,
-  onAddItem,
-}: {
+type MenuGroupListProps = {
   loading: boolean;
   items: MenuItemRow[];
   expandedGroups: Set<string>;
   onToggleGroup: (group: string) => void;
   onAddItem: (item: MenuItemRow) => void;
-}) {
+};
+
+function MenuGroupList({
+  loading,
+  items,
+  expandedGroups,
+  onToggleGroup,
+  onAddItem,
+}: MenuGroupListProps) {
+  // Memoize grouping logic agar tidak re-calc setiap render
   const grouped = useMemo(() => {
     const map = new Map<string, MenuItemRow[]>();
     for (const it of items) {
@@ -33,23 +37,27 @@ export default function MenuGroupList({
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 sm:py-16">
-        <div className="inline-flex h-10 w-10 animate-spin rounded-full border-4 border-muted border-t-primary mb-4"></div>
-        <p className="text-sm sm:text-base text-muted-foreground">Loading menu...</p>
+      <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-muted-foreground">Memuat menu...</p>
       </div>
     );
   }
 
   if (grouped.length === 0) {
     return (
-      <div className="rounded-xl border border-muted bg-card p-8 text-center">
-        <p className="text-lg font-medium text-muted-foreground">Menu kosong / tidak tersedia.</p>
+      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/10 py-16 text-center">
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+          <Package className="h-6 w-6 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-bold">Menu Kosong</h3>
+        <p className="text-sm text-muted-foreground">Belum ada menu yang tersedia saat ini.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 pb-6">
+    <div className="space-y-4 pb-8">
       {grouped.map(({ groupName, groupItems }) => (
         <MenuGroup
           key={groupName}
@@ -63,3 +71,5 @@ export default function MenuGroupList({
     </div>
   );
 }
+
+export default memo(MenuGroupList);

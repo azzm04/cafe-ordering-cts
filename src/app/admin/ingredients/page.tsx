@@ -84,7 +84,7 @@ export default async function IngredientsPage({
         </div>
 
         <div className="flex gap-2">
-          <Link href="/admin">
+          <Link href="/admin/menu">
             <Button variant="outline" className="bg-transparent">
               Kembali
             </Button>

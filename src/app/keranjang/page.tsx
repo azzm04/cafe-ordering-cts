@@ -1,156 +1,123 @@
 "use client";
 
-import { useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { memo } from "react";
 import { Button } from "@/components/ui/button";
-import { useCartStore } from "@/store/cartStore";
+import { ChevronLeft, ShoppingBag, Utensils } from "lucide-react";
+import { useCartLogic } from "@/hooks/useCartLogic";
+import CartItemCard from "@/components/cart/CartItemCard";
+import CartSummary from "@/components/cart/CartSummary";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 
-function formatRupiah(value: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(value);
-}
 
 export default function KeranjangPage() {
-  const router = useRouter();
-
-  const tableNumber = useCartStore((s) => s.tableNumber);
-  const items = useCartStore((s) => s.items);
-
-  const removeItem = useCartStore((s) => s.removeItem);
-  const updateQuantity = useCartStore((s) => s.updateQuantity);
-  const updateNotes = useCartStore((s) => s.updateNotes);
-  const getTotalAmount = useCartStore((s) => s.getTotalAmount);
-
-  const total = useMemo(() => getTotalAmount(), [getTotalAmount, items]);
+  // manggil semua Logic Hook
+  const {
+    tableNumber,
+    items,
+    total,
+    loadingIds,
+    handleBack,
+    handleCheckout,
+    handleIncrement,
+    removeItem,
+    updateQuantity,
+    updateNotes
+  } = useCartLogic();
 
   return (
-    <main className="mx-auto min-h-screen max-w-md p-6 space-y-4">
-      {/* Header + Back */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Keranjang</h1>
-          <p className="text-sm opacity-80">Meja {tableNumber ?? "-"}</p>
-        </div>
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
 
-        <Button
-          variant="secondary"
-          onClick={() => {
-            // fallback yang aman
-            if (window.history.length > 1) router.back();
-            else router.push("/menu");
-          }}
-        >
-          Kembali
-        </Button>
-      </div>
-
-      {items.length === 0 ? (
-        <div className="rounded-xl border p-4">
-          <p className="text-sm opacity-80">Keranjang kosong.</p>
-          <div className="mt-3">
-            <Button onClick={() => router.push("/menu")}>Ke Menu</Button>
+      <div className="relative z-10 mx-auto min-h-screen flex flex-col max-w-md md:max-w-5xl md:px-6">
+        {/* --- HEADER --- */}
+        <header className="sticky top-0 z-20 flex items-center justify-between px-6 py-4 bg-background/80 backdrop-blur-md border-b border-border/40 md:rounded-b-2xl md:top-4 md:border md:shadow-sm transition-all">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleBack}
+              className="h-9 w-9 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-lg font-bold leading-none">Keranjang</h1>
+              <span className="text-xs text-muted-foreground font-medium">
+                Meja {tableNumber ?? "-"}
+              </span>
+            </div>
           </div>
-        </div>
-      ) : (
-        <>
-          {items.map((it) => (
-            <div key={it.id} className="rounded-xl border p-4 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <p className="font-semibold">{it.name}</p>
-                  <p className="text-sm opacity-80">
-                    {formatRupiah(it.price)} × {it.quantity} ={" "}
-                    {formatRupiah(it.price * it.quantity)}
-                  </p>
+          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-primary/10 text-primary">
+            <ShoppingBag className="h-4 w-4" />
+          </div>
+        </header>
+
+        {/* --- CONTENT LAYOUT --- */}
+        <div className="flex-1 px-4 py-6 md:px-0">
+          {items.length === 0 ? (
+            // Empty State
+            <div className="flex flex-col items-center justify-center py-16 space-y-4 text-center animate-in fade-in zoom-in-95 duration-500 min-h-[50vh]">
+              <div className="relative h-24 w-24">
+                <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
+                <div className="relative flex items-center justify-center h-full w-full bg-card/50 rounded-full border border-dashed border-border">
+                  <Utensils className="h-10 w-10 text-muted-foreground/50" />
                 </div>
-
-                <Button variant="destructive" onClick={() => removeItem(it.id)}>
-                  Hapus
-                </Button>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold">Keranjang Kosong</h3>
+                <p className="text-sm text-muted-foreground max-w-[250px] mx-auto">
+                  Belum ada menu yang dipilih. Yuk pesan sesuatu yang enak!
+                </p>
+              </div>
+              <Button onClick={handleBack} className="mt-4 rounded-full px-6">
+                Lihat Menu
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-12 md:items-start">
+              
+              {/* Left Column: Cart Items */}
+              <div className="space-y-4 pb-32 md:pb-0 md:col-span-8">
+                {items.map((it) => (
+                  <CartItemCard
+                    key={it.id}
+                    item={it}
+                    isLoading={loadingIds.has(it.id)}
+                    onRemove={removeItem}
+                    onIncrement={handleIncrement}
+                    onDecrement={updateQuantity}
+                    onUpdateNotes={updateNotes}
+                  />
+                ))}
               </div>
 
-              {/* Qty */}
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="secondary"
-                  onClick={() => updateQuantity(it.id, it.quantity - 1)}
-                  disabled={it.quantity <= 1}
-                >
-                  -
-                </Button>
-
-                <div className="w-8 text-center font-medium">{it.quantity}</div>
-
-                <Button
-                  variant="secondary"
-                  onClick={async () => {
-                    // prepare current cart items
-                    const items = useCartStore.getState().items.map((x) => ({ menu_item_id: x.id, quantity: x.quantity }));
-                    const idx = items.findIndex((x) => x.menu_item_id === it.id);
-                    if (idx >= 0) items[idx].quantity = items[idx].quantity + 1;
-
-                    try {
-                      const res = await fetch('/api/cart/availability', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ items }),
-                      });
-                      const json = await res.json();
-                      if (!res.ok || !json?.ok) {
-                        if (json?.shortages && json.shortages.length > 0) {
-                          const s = json.shortages[0];
-                          toast.error(`Stok tidak cukup untuk bahan ${s.ingredient_id}. Tersedia: ${s.available}, dibutuhkan: ${s.needed}`);
-                        } else {
-                          toast.error('Stok tidak cukup');
-                        }
-                        return;
-                      }
-
-                      updateQuantity(it.id, it.quantity + 1);
-                    } catch (err) {
-                      console.error('availability check failed', err);
-                      toast.error('Gagal cek stok');
-                    }
-                  }}
-                  disabled={typeof it.max_portions === "number" && it.quantity >= it.max_portions}
-                >
-                  +
-                </Button>
-                {typeof it.max_portions === "number" && it.quantity >= it.max_portions ? (
-                  <div className="text-sm text-muted-foreground">Maksimal {it.max_portions} porsi</div>
-                ) : null
-                }
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-2">
-                <p className="text-sm opacity-80">Catatan (opsional)</p>
-                <textarea
-                  className="w-full rounded-lg border p-3 text-sm outline-none"
-                  placeholder="Contoh: pedas ya / tanpa es"
-                  value={it.notes ?? ""}
-                  onChange={(e) => updateNotes(it.id, e.target.value)}
-                  rows={3}
+              {/* Right Column: Desktop Summary (Sticky) */}
+              <div className="hidden md:block md:col-span-4 md:sticky md:top-28">
+                <CartSummary 
+                  variant="desktop"
+                  total={total}
+                  itemCount={items.length}
+                  tableNumber={tableNumber}
+                  onCheckout={handleCheckout}
                 />
               </div>
             </div>
-          ))}
+          )}
+        </div>
 
-          {/* Total */}
-          <div className="rounded-xl border p-4 flex items-center justify-between">
-            <p className="font-medium">Total</p>
-            <p className="text-xl font-bold">{formatRupiah(total)}</p>
+        {/* --- MOBILE STICKY FOOTER --- */}
+        {items.length > 0 && (
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 mx-auto max-w-md p-4">
+             <CartSummary 
+                variant="mobile"
+                total={total}
+                itemCount={items.length}
+                tableNumber={tableNumber}
+                onCheckout={handleCheckout}
+              />
           </div>
-
-          <Button className="w-full" onClick={() => router.push("/pembayaran")}>
-            Lanjut Pembayaran
-          </Button>
-        </>
-      )}
+        )}
+      </div>
     </main>
   );
 }

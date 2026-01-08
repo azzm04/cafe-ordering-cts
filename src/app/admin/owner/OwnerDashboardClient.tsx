@@ -73,12 +73,6 @@ export default function OwnerDashboardClient() {
               </Button>
             </Link>
 
-            <Link href="/admin/ingredients" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
-                Ingredients
-              </Button>
-            </Link>
-
             <Link href="/admin/laporan" className="flex-1 sm:flex-none">
               <Button variant="outline" className="w-full sm:w-auto bg-transparent">
                 Laporan

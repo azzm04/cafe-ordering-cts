@@ -90,7 +90,12 @@ export default function MenuHeaderActions({
         <Button variant="secondary" onClick={onRefresh} disabled={loading} className="flex-1 sm:flex-none">
           {loading ? "Loading..." : "Refresh"}
         </Button>
-
+        
+        <Link href="/admin/ingredients" className="flex-1 sm:flex-none">
+              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+                Ingredients
+              </Button>
+            </Link>
         <Link href="/admin/archived-menu">
           <Button variant="outline">Lihat Arsip</Button>
         </Link>

@@ -1,48 +1,58 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { memo } from "react";
+import { ChevronDown, Package } from "lucide-react";
 import type { MenuItemRow } from "@/components/menu/constants";
 import MenuItemCard from "@/components/menu/MenuItemCard";
 
-export default function MenuGroup({
-  groupName,
-  groupItems,
-  expanded,
-  onToggle,
-  onAddItem,
-}: {
+type MenuGroupProps = {
   groupName: string;
   groupItems: MenuItemRow[];
   expanded: boolean;
   onToggle: () => void;
   onAddItem: (item: MenuItemRow) => void;
-}) {
+};
+
+function MenuGroup({ groupName, groupItems, expanded, onToggle, onAddItem }: MenuGroupProps) {
   return (
-    <div className="rounded-xl border border-muted bg-card overflow-hidden transition-all">
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 text-left hover:bg-muted/50 transition-colors"
+        className="flex w-full items-center justify-between bg-muted/30 px-4 py-3 text-left transition-colors hover:bg-muted/50"
       >
         <div className="flex items-center gap-3">
-          <h3 className="font-semibold text-base sm:text-lg">{groupName}</h3>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
-            {groupItems.length}
-          </span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Package className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold leading-none text-foreground sm:text-base">
+              {groupName}
+            </h3>
+            <p className="mt-1 text-[10px] font-medium text-muted-foreground">
+              {groupItems.length} item
+            </p>
+          </div>
         </div>
 
         <ChevronDown
-          className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+          className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${
+            expanded ? "rotate-180" : ""
+          }`}
         />
       </button>
 
-      {expanded ? (
-        <div className="border-t border-muted divide-y divide-muted">
+      {expanded && (
+        <div className="divide-y divide-border/50 border-t border-border/50 bg-background/50">
           {groupItems.map((it) => (
-            <MenuItemCard key={it.id} item={it} onAdd={() => onAddItem(it)} />
+            <div key={it.id} className="p-3 sm:p-4">
+              <MenuItemCard item={it} onAdd={() => onAddItem(it)} />
+            </div>
           ))}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
+
+export default memo(MenuGroup);
