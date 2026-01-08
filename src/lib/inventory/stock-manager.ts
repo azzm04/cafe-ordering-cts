@@ -111,5 +111,176 @@ export async function deductStockForOrder(orderId: string) {
     });
 
     if (mvErr) throw new Error(mvErr.message);
+
+    // Update menu availability for menus that depend on this ingredient (per-portion logic)
+    try {
+      await updateMenuAvailabilityForIngredient(ingredientId);
+    } catch (err: unknown) {
+      console.error("updateMenuAvailabilityForIngredient failed", err);
+      // don't fail the deduction if availability update fails
+    }
   }
+}
+
+export async function updateMenuAvailabilityForIngredient(ingredientId: string) {
+  try {
+    const { data: uses, error: usesErr } = await supabaseAdmin
+      .from("menu_recipes")
+      .select("menu_item_id")
+      .eq("ingredient_id", ingredientId)
+      .returns<{ menu_item_id: string }[]>();
+
+    if (usesErr) {
+      console.error("updateMenuAvailabilityForIngredient: menu_recipes query failed", usesErr);
+      return;
+    }
+    if (!uses || uses.length === 0) return;
+
+    const menuIds = Array.from(new Set(uses.map((u) => u.menu_item_id)));
+
+    for (const menuId of menuIds) {
+      const { data: recipe, error: recipeErr } = await supabaseAdmin
+        .from("menu_recipes")
+        .select("ingredient_id, quantity_needed")
+        .eq("menu_item_id", menuId)
+        .returns<RecipeRow[]>();
+
+      if (recipeErr) {
+        console.error("updateMenuAvailabilityForIngredient: failed to load recipe", menuId, recipeErr);
+        continue;
+      }
+      if (!recipe || recipe.length === 0) {
+        // mark unavailable if no recipe
+        const { error: updErr2 } = await supabaseAdmin
+          .from("menu_items")
+          .update({ is_available: false })
+          .eq("id", menuId);
+        if (updErr2)
+          console.error(
+            "updateMenuAvailabilityForIngredient: failed to mark menu unavailable",
+            menuId,
+            updErr2
+          );
+        continue;
+      }
+
+      const ingIds = recipe.map((r) => r.ingredient_id);
+      const { data: ings, error: ingsErr } = await supabaseAdmin
+        .from("ingredients")
+        .select("id, current_stock")
+        .in("id", ingIds)
+        .returns<IngredientRow[]>();
+
+      if (ingsErr) {
+        console.error("updateMenuAvailabilityForIngredient: failed to load ingredients", menuId, ingsErr);
+        continue;
+      }
+
+      const stockMap = new Map(ings.map((i) => [i.id, toNumber(i.current_stock)]));
+
+      let available = true;
+      let failingIngredient: { id: string; stock: number; need: number } | null = null;
+      try {
+        for (const r of recipe) {
+          const need = toNumber(r.quantity_needed);
+          const stock = stockMap.get(r.ingredient_id) ?? 0;
+          if (stock < need) {
+            available = false;
+            failingIngredient = { id: r.ingredient_id, stock, need };
+            break;
+          }
+        }
+      } catch (err: unknown) {
+        console.error("updateMenuAvailabilityForIngredient: numeric parse error for menu", menuId, err);
+        continue;
+      }
+
+      const { data: mi, error: miErr } = await supabaseAdmin
+        .from("menu_items")
+        .select("id, is_available")
+        .eq("id", menuId)
+        .single<{ id: string; is_available: boolean }>();
+
+      if (miErr || !mi) {
+        console.error("updateMenuAvailabilityForIngredient: failed to get menu_item", menuId, miErr);
+        continue;
+      }
+
+      if (mi.is_available !== available) {
+        const { error: updMiErr } = await supabaseAdmin
+          .from("menu_items")
+          .update({ is_available: available })
+          .eq("id", menuId);
+
+        if (updMiErr) {
+          console.error("updateMenuAvailabilityForIngredient: failed to update menu availability", menuId, updMiErr);
+        } else {
+          if (!available && failingIngredient) {
+            console.log(
+              `menu_items(${menuId}) is_available -> ${available} (failing ingredient: ${failingIngredient.id}, stock=${failingIngredient.stock}, need=${failingIngredient.need})`
+            );
+          } else {
+            console.log(`menu_items(${menuId}) is_available -> ${available}`);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("updateMenuAvailabilityForIngredient: unexpected error", err);
+  }
+}
+
+export async function computeMaxPortionsForMenus(menuIds: string[]) : Promise<Map<string, number | null>> {
+  const result = new Map<string, number | null>();
+  if (!menuIds || menuIds.length === 0) return result;
+
+  const { data: recipes, error } = await supabaseAdmin
+    .from("menu_recipes")
+    .select("menu_item_id, quantity_needed, ingredients:ingredient_id (id, current_stock)")
+    .in("menu_item_id", menuIds)
+    .returns<any[]>();
+
+  if (error) {
+    console.error("computeMaxPortionsForMenus: failed to load recipes", error);
+    // Return nulls so callers don't block on this non-critical failure
+    for (const id of menuIds) result.set(id, null);
+    return result;
+  }
+
+  const grouped = new Map<string, any[]>();
+  for (const r of recipes ?? []) {
+    grouped.set(r.menu_item_id, (grouped.get(r.menu_item_id) ?? []).concat(r));
+  }
+
+  for (const id of menuIds) {
+    const recs = grouped.get(id) ?? [];
+    if (!recs || recs.length === 0) {
+      result.set(id, null);
+      continue;
+    }
+
+    let minPortions = Number.POSITIVE_INFINITY;
+    let invalid = false;
+
+    for (const r of recs) {
+      const need = Number(r.quantity_needed);
+      const stock = r.ingredients?.current_stock ?? 0;
+      const stockNum = Number(stock);
+      if (!Number.isFinite(need) || need <= 0) {
+        invalid = true;
+        break;
+      }
+      if (!Number.isFinite(stockNum)) {
+        invalid = true;
+        break;
+      }
+      const portions = Math.floor(stockNum / need);
+      if (portions < minPortions) minPortions = portions;
+    }
+
+    if (invalid || !Number.isFinite(minPortions)) result.set(id, 0);
+    else result.set(id, Math.max(0, minPortions));
+  }
+
+  return result;
 }

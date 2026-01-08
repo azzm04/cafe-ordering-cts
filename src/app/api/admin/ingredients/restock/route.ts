@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { updateMenuAvailabilityForIngredient } from "@/lib/inventory/stock-manager";
 
 type IngredientRow = {
   id: string;
@@ -79,6 +80,13 @@ export async function POST(req: Request) {
   if (mErr) {
     // MVP: log dulu, nanti bisa dibuat RPC agar atomic
     console.error("movement insert failed:", mErr);
+  }
+
+  // After restock/adjustment, refresh availability of menus that depend on this ingredient
+  try {
+    await updateMenuAvailabilityForIngredient(ingredientId);
+  } catch (err: unknown) {
+    console.error("post-restock updateMenuAvailabilityForIngredient failed", err);
   }
 
   return jsonNoStore({ ok: true, stock_before: before, stock_after: after });
