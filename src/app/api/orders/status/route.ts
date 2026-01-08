@@ -55,7 +55,6 @@ export async function GET(req: Request) {
     );
   }
 
-  // ✅ normalize: kalau completed_at ada, anggap status completed
   const effectiveFulfillment: FulfillmentStatus = data.completed_at
     ? "completed"
     : data.fulfillment_status;

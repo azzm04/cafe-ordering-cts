@@ -9,7 +9,7 @@ type IngredientRow = {
   id: string;
   name: string;
   unit: string;
-  current_stock: number; // kalau supabase numeric jadi string, bilang ya biar aku adjust
+  current_stock: number; 
   min_stock: number;
   cost_per_unit: number | null;
   notes: string | null;

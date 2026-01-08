@@ -6,6 +6,5 @@ export default async function KasirPage() {
   const role = await getAdminRolePage();
   if (!role) redirect("/admin/login");
 
-  // kasir boleh, owner juga boleh akses kasir dashboard (kalau kamu mau)
   return <AdminKasirDashboardClient />;
 }

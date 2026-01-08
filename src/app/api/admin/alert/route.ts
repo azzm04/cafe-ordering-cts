@@ -60,7 +60,6 @@ export async function GET() {
   const guard = await requireOwner();
   if (guard instanceof NextResponse) return guard;
 
-  // ✅ join yang benar pakai foreign key hint
   const { data, error } = await supabaseAdmin
     .from("stock_alerts")
     .select(

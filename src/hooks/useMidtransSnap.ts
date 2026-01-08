@@ -37,7 +37,6 @@ export function useMidtransSnap() {
       process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!
     );
 
-    // ✅ setState hanya dari callback eksternal
     script.onload = () => setReady(true);
     script.onerror = () => setReady(false);
 

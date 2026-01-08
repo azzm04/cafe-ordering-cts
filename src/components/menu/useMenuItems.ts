@@ -97,7 +97,6 @@ export function useMenuItems({
 
   // 3) realtime - refresh saat menu_items berubah
   useEffect(() => {
-    // ✅ saran: jangan "*", biar gak spam
     const channel = supabaseBrowser
       .channel("realtime-menu-items")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "menu_items" }, () => void refresh())

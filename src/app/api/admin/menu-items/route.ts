@@ -50,8 +50,6 @@ export async function GET(req: Request) {
   const q = searchParams.get("q")?.trim() ?? "";
   const availableParam = searchParams.get("available"); // "1" | "0" | null
 
-  // ✅ default: sembunyikan yang sudah di-archive
-  // Kalau mau lihat yang archived, panggil: /api/admin/menu-items?archived=1
   const archivedParam = searchParams.get("archived"); // "1" | "0" | null
 
   let query = supabaseAdmin

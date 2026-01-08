@@ -83,7 +83,7 @@ export async function POST(req: Request) {
       return jsonNoStore({ message: "tableNumber & items required" }, { status: 400 });
     }
 
-    // 1) cek meja
+    // cek meja
     const { data: table, error: tableErr } = await supabaseAdmin
       .from("tables")
       .select("id, status, table_number")
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
     const totalAmount = body.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
     const orderNumber = generateOrderNumber();
 
-    // 2) create order
+    // create order
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
       return jsonNoStore({ message: orderErr?.message ?? "Failed create order" }, { status: 500 });
     }
 
-    // 3) insert order items
+    // insert order items
     const orderItemsPayload = body.items.map((it) => ({
       order_id: order.id,
       menu_item_id: it.menu_item_id,
@@ -132,7 +132,7 @@ export async function POST(req: Request) {
     const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(orderItemsPayload);
     if (itemsErr) return jsonNoStore({ message: itemsErr.message }, { status: 500 });
 
-    // 4) lock meja jadi occupied
+    // lock meja jadi occupied
     const { error: lockErr } = await supabaseAdmin
       .from("tables")
       .update({ status: "occupied" })
@@ -140,7 +140,7 @@ export async function POST(req: Request) {
 
     if (lockErr) return jsonNoStore({ message: lockErr.message }, { status: 500 });
 
-    // 5) create midtrans transaction
+    // create midtrans transaction
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
     const params: MidtransTransactionParams = {
@@ -157,7 +157,6 @@ export async function POST(req: Request) {
         })
       ),
       callbacks: {
-        // ✅ balik ke nota order yang benar
         finish: `${appUrl}/nota/${order.order_number}`,
       },
     };
@@ -168,7 +167,7 @@ export async function POST(req: Request) {
       return jsonNoStore({ message: "Failed to get token/redirect_url from Midtrans" }, { status: 500 });
     }
 
-    // 6) simpan token + redirect_url ke DB
+    // simpan token + redirect_url ke DB
     const { error: saveErr } = await supabaseAdmin
       .from("orders")
       .update({

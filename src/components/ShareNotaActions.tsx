@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner"; 
-import { Share2, Check, AlertCircle } from "lucide-react"; // ✅ Tambah AlertCircle
+import { Share2, Check, AlertCircle } from "lucide-react"; 
 
 type Props = {
   orderNumber: string;

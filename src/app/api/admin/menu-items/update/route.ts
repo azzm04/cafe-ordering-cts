@@ -13,7 +13,7 @@ type Body = {
   price?: number;
   imageUrl?: string | null;
   isAvailable?: boolean;
-  variantGroup?: string | null; // <-- penting
+  variantGroup?: string | null;
 };
 
 type UpdatePayload = {
@@ -42,7 +42,6 @@ export async function POST(req: Request) {
 
   const patch: UpdatePayload = {};
 
-  // ✅ hanya update kalau field-nya benar-benar dikirim
   if (typeof body.categoryId === "string") {
     const v = body.categoryId.trim();
     if (!v) return NextResponse.json({ message: "categoryId required" }, { status: 400 });
@@ -77,7 +76,6 @@ export async function POST(req: Request) {
     patch.is_available = Boolean(body.isAvailable);
   }
 
-  // ✅ INI kuncinya: variant_group cuma diubah kalau dikirim
   if (body.variantGroup !== undefined) {
     const v = typeof body.variantGroup === "string" ? body.variantGroup.trim() : "";
     patch.variant_group = v ? v : null; // kirim "" => null, kirim string => set value

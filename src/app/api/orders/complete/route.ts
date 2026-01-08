@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Get order details
+    // Get order details
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .select("id, table_id, payment_status, fulfillment_status, completed_at")
@@ -59,7 +59,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. ✅ Complete the order - Update both fulfillment_status AND completed_at
     const { error: updateErr } = await supabaseAdmin
       .from("orders")
       .update({
@@ -76,7 +75,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4. Release the table
     const { error: tableErr } = await supabaseAdmin
       .from("tables")
       .update({ status: "available" })

@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     stock_after: after,
     reason: body?.reason ?? "restock",
     reference_id: body?.referenceId ?? null,
-    created_by: null, // kamu bisa isi kalau nanti punya admin_user_id
+    created_by: null, 
   });
 
   if (mErr) {

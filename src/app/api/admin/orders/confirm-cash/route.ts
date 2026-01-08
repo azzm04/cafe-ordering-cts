@@ -38,8 +38,7 @@ export async function POST(req: Request) {
     if (!orderNumber) {
       return NextResponse.json({ message: "orderNumber required" }, { status: 400 });
     }
-
-    // 1) Ambil order
+    // ambil order berdasarkan orderNumber
     const { data: order, error: findErr } = await supabaseAdmin
       .from("orders")
       .select("id, order_number, payment_method, payment_status, fulfillment_status, completed_at")
@@ -54,17 +53,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Order sudah completed" }, { status: 400 });
     }
 
-    // Pastikan ini memang cash pending
     if (order.payment_method !== "cash") {
       return NextResponse.json({ message: "Order ini bukan pembayaran tunai" }, { status: 400 });
     }
 
-    // Kalau sudah paid, jangan dobel
     if (order.payment_status === "paid") {
       return NextResponse.json({ ok: true, alreadyPaid: true });
     }
-
-    // 2) Cegah dobel deduct: cek stock_movements sudah ada untuk order ini
+    // cek apakah stock sudah dideduct untuk order ini
     const { data: existingMoves, error: moveErr } = await supabaseAdmin
       .from("stock_movements")
       .select("id")
@@ -76,9 +72,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: moveErr.message }, { status: 500 });
     }
 
+    // kalau belum, deduct stock sekarang juga
     const alreadyDeducted = (existingMoves?.length ?? 0) > 0;
 
-    // 3) Deduct stok (kalau belum pernah)
     if (!alreadyDeducted) {
       try {
         await deductStockForOrder(order.id);
@@ -90,7 +86,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4) Update order jadi paid (dan set fulfillment minimal received kalau masih pending flow)
     const nextFulfillment =
       order.fulfillment_status === "received" ||
       order.fulfillment_status === "preparing" ||
