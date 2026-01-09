@@ -1,7 +1,7 @@
 // src/components/NotaAutoRefresh.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 type PaymentStatus = "pending" | "paid" | "failed" | "expired";
@@ -43,88 +43,91 @@ export function NotaAutoRefresh({
 }: Props) {
   const router = useRouter();
 
-  const [payment, setPayment] = useState<PaymentStatus>(initialPaymentStatus);
-  const [fulfillment, setFulfillment] = useState<FulfillmentStatus>(
-    initialFulfillmentStatus
-  );
   const [lastCheck, setLastCheck] = useState<string>(() =>
     formatTimeHHmmss(new Date())
   );
+  
+  const [isStopped, setIsStopped] = useState(() => 
+    isFinal(initialPaymentStatus, initialFulfillmentStatus)
+  );
 
-  const stopped = useMemo(() => isFinal(payment, fulfillment), [payment, fulfillment]);
+  const currentStatusRef = useRef({
+    payment: initialPaymentStatus,
+    fulfillment: initialFulfillmentStatus,
+  });
 
-  const timerRef = useRef<number | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const checkStatus = useCallback(async () => {
+    if (isFinal(currentStatusRef.current.payment, currentStatusRef.current.fulfillment)) {
+        setIsStopped(true);
+        return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/orders/status?orderNumber=${encodeURIComponent(orderNumber)}`,
+        {
+          method: "GET",
+          cache: "no-store",
+        }
+      );
+
+      if (!res.ok) {
+        setLastCheck(formatTimeHHmmss(new Date()));
+        return;
+      }
+
+      const json = (await res.json()) as StatusResponse;
+      setLastCheck(formatTimeHHmmss(new Date()));
+
+      const prev = currentStatusRef.current;
+      const hasChanged =
+        json.payment_status !== prev.payment ||
+        json.fulfillment_status !== prev.fulfillment;
+
+      if (hasChanged) {
+        // Update Ref
+        currentStatusRef.current = {
+          payment: json.payment_status,
+          fulfillment: json.fulfillment_status,
+        };
+        
+        if (isFinal(json.payment_status, json.fulfillment_status)) {
+            setIsStopped(true);
+        }
+
+        // Refresh Server Component agar UI utama update
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Auto refresh error:", error);
+      setLastCheck(formatTimeHHmmss(new Date()));
+    }
+  }, [orderNumber, router]);
 
   useEffect(() => {
-    // klo udah final, stop polling
-    if (stopped) return;
+    if (isStopped) return;
 
-    const tick = async () => {
-      abortRef.current?.abort();
-      abortRef.current = new AbortController();
 
-      try {
-        const res = await fetch(
-          `/api/orders/status?orderNumber=${encodeURIComponent(orderNumber)}`,
-          {
-            method: "GET",
-            cache: "no-store",
-            signal: abortRef.current.signal,
-          }
-        );
-
-        if (!res.ok) {
-          setLastCheck(formatTimeHHmmss(new Date()));
-          return;
+    const intervalId = setInterval(() => {
+        if (!isStopped) {
+            void checkStatus();
+        } else {
+            clearInterval(intervalId);
         }
-
-        const json = (await res.json()) as StatusResponse;
-
-        setPayment(json.payment_status);
-        setFulfillment(json.fulfillment_status);
-        setLastCheck(formatTimeHHmmss(new Date()));
-
-        if (
-          json.payment_status !== payment ||
-          json.fulfillment_status !== fulfillment
-        ) {
-          router.refresh();
-        }
-
-        if (isFinal(json.payment_status, json.fulfillment_status)) {
-          return;
-        }
-      } catch {
-        setLastCheck(formatTimeHHmmss(new Date()));
-      }
-    };
-
-    // tick pertama
-    void tick();
-
-    timerRef.current = window.setInterval(() => {
-      void tick();
     }, intervalMs);
 
-    return () => {
-      if (timerRef.current) window.clearInterval(timerRef.current);
-      timerRef.current = null;
-      abortRef.current?.abort();
-      abortRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderNumber, intervalMs, stopped]);
+    return () => clearInterval(intervalId);
+  }, [intervalMs, checkStatus, isStopped]);
 
   return (
     <div className="mt-3 text-xs text-muted-foreground flex items-center gap-2">
       <span
-        className={`inline-block w-2 h-2 rounded-full ${
-          stopped ? "bg-muted-foreground/40" : "bg-emerald-500"
+        className={`inline-block w-2 h-2 rounded-full transition-colors duration-300 ${
+          isStopped ? "bg-muted-foreground/40" : "bg-emerald-500 animate-pulse"
         }`}
       />
       <span>
-        {stopped ? "Auto refresh berhenti" : "Auto refresh aktif"} · cek terakhir{" "}
+        {isStopped ? "Auto refresh selesai" : "Auto refresh aktif"} · Cek terakhir{" "}
         {lastCheck}
       </span>
     </div>

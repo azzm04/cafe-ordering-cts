@@ -1,10 +1,14 @@
+// src/app/nota/[orderNumber]/page.tsx
+
 import { notFound } from "next/navigation";
+import { getNotaData } from "@/services/nota/getNotaData";
+import { deriveEffectiveFulfillmentStatus, isCashPending } from "@/lib/nota/status";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations"; // Pastikan path ini benar
+
 import NotaHeader from "@/components/nota/NotaHeader";
 import CashPendingAlert from "@/components/nota/CashPendingAlert";
 import NotaSummaryCard from "@/components/nota/NotaSummaryCard";
 import NotaActions from "@/components/nota/NotaActions";
-import { getNotaData } from "@/services/nota/getNotaData";
-import { deriveEffectiveFulfillmentStatus, isCashPending } from "@/lib/nota/status";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +21,6 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
   if (!data) return notFound();
 
   const { order, items } = data;
-
   const tableNumber = order.tables?.table_number ?? null;
 
   const effectiveFulfillmentStatus = deriveEffectiveFulfillmentStatus({
@@ -33,17 +36,23 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
   const isPaid = order.payment_status === "paid";
 
   return (
-    <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8 pb-20">
-      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-background to-background pointer-events-none" />
-      <div className="max-w-2xl mx-auto relative z-10">
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      {/* 1. Background Consistency */}
+      <BackgroundDecorations />
+
+      <div className="relative z-10 mx-auto min-h-screen flex flex-col max-w-md md:max-w-2xl px-4 py-8 sm:py-12">
+        
+        {/* Header Section */}
         <NotaHeader
           orderNumber={order.order_number}
           paymentStatus={order.payment_status}
           effectiveFulfillmentStatus={effectiveFulfillmentStatus}
         />
 
-        {cashPending ? <CashPendingAlert orderNumber={order.order_number} /> : null}
+        {/* Alerts */}
+        {cashPending && <CashPendingAlert orderNumber={order.order_number} />}
 
+        {/* Main Card */}
         <NotaSummaryCard
           orderNumber={order.order_number}
           tableNumber={tableNumber}
@@ -56,13 +65,17 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
           totalAmount={order.total_amount}
         />
 
-        <NotaActions
-          orderNumber={order.order_number}
-          tableNumber={tableNumber}
-          totalAmount={order.total_amount}
-          paymentStatus={order.payment_status}
-          paymentMethod={order.payment_method}
-        />
+        {/* Action Buttons */}
+        <div className="mt-8">
+          <NotaActions
+            orderNumber={order.order_number}
+            tableNumber={tableNumber}
+            totalAmount={order.total_amount}
+            paymentStatus={order.payment_status}
+            paymentMethod={order.payment_method}
+          />
+        </div>
+
       </div>
     </main>
   );
