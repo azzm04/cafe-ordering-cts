@@ -21,7 +21,7 @@ function jsonNoStore(data: unknown, init?: ResponseInit) {
 
 export async function POST(req: Request) {
   const guard = await requireAdmin();
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   let body: Body;
   try {

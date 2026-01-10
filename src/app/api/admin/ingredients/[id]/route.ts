@@ -56,6 +56,56 @@ export async function GET(
   return jsonNoStore({ ingredient: data });
 }
 
+export async function DELETE(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  const guard = await requireAdmin();
+  if (guard instanceof NextResponse) return guard;
+
+  const params = await context.params;
+  const { id } = params;
+
+  if (!id) {
+    return jsonNoStore({ message: "Missing ingredient id" }, { status: 400 });
+  }
+
+  try {
+    const { data: usageCheck, error: checkError } = await supabaseAdmin
+      .from("menu_recipes")
+      .select("id")
+      .eq("ingredient_id", id)
+      .limit(1);
+
+    if (checkError) {
+      return jsonNoStore({ message: checkError.message }, { status: 500 });
+    }
+
+    if (usageCheck && usageCheck.length > 0) {
+      return jsonNoStore(
+        { message: "Tidak dapat menghapus bahan yang masih digunakan dalam menu" },
+        { status: 400 }
+      );
+    }
+
+    const { error: deleteError } = await supabaseAdmin
+      .from("ingredients")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      return jsonNoStore({ message: deleteError.message }, { status: 500 });
+    }
+
+    return jsonNoStore({ message: "Bahan berhasil dihapus" });
+  } catch (err) {
+    return jsonNoStore(
+      { message: (err as Error).message || "Terjadi kesalahan" },
+      { status: 500 }
+    );
+  }
+}
+
 type PatchBody = {
   name?: string;
   unit?: string;

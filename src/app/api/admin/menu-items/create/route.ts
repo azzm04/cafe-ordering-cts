@@ -45,7 +45,7 @@ function isCreateBody(x: unknown): x is CreateBody {
 
 export async function POST(req: Request) {
   const guard = await requireAdmin();
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   let raw: unknown;
   try {

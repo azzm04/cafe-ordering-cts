@@ -2,18 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-declare global {
-  interface Window {
-    snap: {
-      pay: (snapToken: string, options: {
-        onSuccess?: () => void;
-        onPending?: () => void;
-        onError?: () => void;
-        onClose?: () => void;
-      }) => void;
-    };
-  }
-}
 
 export function useMidtransSnap() {
   const [ready, setReady] = useState(() => typeof window !== "undefined" && !!window.snap);

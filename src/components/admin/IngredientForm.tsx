@@ -1,182 +1,237 @@
-"use client"
+"use client";
 
-import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft } from "lucide-react"
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label"; // Gunakan Label dari shadcn jika ada, atau label biasa
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
 
 type Ingredient = {
-  id: string
-  name: string
-  unit: string
-  current_stock: number
-  min_stock: number
-  cost_per_unit: number | null
-  notes: string | null
-}
+  id: string;
+  name: string;
+  unit: string;
+  current_stock: number;
+  min_stock: number;
+  cost_per_unit: number | null;
+  notes: string | null;
+};
 
 export default function IngredientForm({
   mode,
   initial,
 }: {
-  mode: "create" | "edit"
-  initial?: Ingredient
+  mode: "create" | "edit";
+  initial?: Ingredient;
 }) {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
 
-  const [name, setName] = useState(initial?.name ?? "")
-  const [unit, setUnit] = useState(initial?.unit ?? "gram")
-  const [initialStock, setInitialStock] = useState<number>(0)
-  const [minStock, setMinStock] = useState<number>(initial?.min_stock ?? 0)
-  const [cost, setCost] = useState<number>(initial?.cost_per_unit ?? 0)
-  const [notes, setNotes] = useState(initial?.notes ?? "")
-  const [error, setError] = useState<string>("")
+  const [name, setName] = useState(initial?.name ?? "");
+  const [unit, setUnit] = useState(initial?.unit ?? "gram");
+  const [initialStock, setInitialStock] = useState<number>(0);
+  const [minStock, setMinStock] = useState<number>(initial?.min_stock ?? 0);
+  const [cost, setCost] = useState<number>(initial?.cost_per_unit ?? 0);
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [error, setError] = useState<string>("");
 
-  async function onSubmit() {
-    setError("")
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault(); // Mencegah reload form native
+    setError("");
 
-    if (!name.trim()) return setError("Nama wajib diisi.")
-    if (!unit.trim()) return setError("Unit wajib diisi.")
+    if (!name.trim()) return setError("Nama bahan wajib diisi.");
+    if (!unit.trim()) return setError("Satuan unit wajib dipilih.");
 
     startTransition(async () => {
       try {
-        if (mode === "create") {
-          const res = await fetch("/api/admin/ingredients", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: name.trim(),
-              unit: unit.trim(),
-              initial_stock: Number(initialStock) || 0,
-              min_stock: Number(minStock) || 0,
-              cost_per_unit: Number(cost) || 0,
-              notes: notes.trim() || null,
-            }),
-          })
-
-          const j = await res.json().catch(() => ({}))
-          if (!res.ok) throw new Error(j?.message ?? "Gagal membuat ingredient")
-
-          router.push("/admin/ingredients")
-          router.refresh()
-          return
-        }
-
-        // edit
-        const res = await fetch(`/api/admin/ingredients/${initial!.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const payload = {
             name: name.trim(),
             unit: unit.trim(),
             min_stock: Number(minStock) || 0,
             cost_per_unit: Number(cost) || 0,
             notes: notes.trim() || null,
-          }),
-        })
+        };
 
-        const j = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(j?.message ?? "Gagal update ingredient")
+        let res;
+        
+        if (mode === "create") {
+            res = await fetch("/api/admin/ingredients", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                ...payload,
+                initial_stock: Number(initialStock) || 0,
+            }),
+            });
+        } else {
+            res = await fetch(`/api/admin/ingredients/${initial!.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            });
+        }
 
-        router.push("/admin/ingredients")
-        router.refresh()
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j?.message ?? "Terjadi kesalahan saat menyimpan");
+
+        router.push("/admin/ingredients");
+        router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Unknown error")
+        setError(e instanceof Error ? e.message : "Unknown error");
       }
-    })
+    });
   }
 
   return (
-    <div className="space-y-6">
-      <button
-        onClick={() => router.push("/admin/ingredients")}
-        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Kembali
-      </button>
+    <form onSubmit={onSubmit} className="space-y-8">
+      
+      {/* Header Form */}
+      <div className="flex items-center justify-between">
+        <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Batal & Kembali
+        </button>
+      </div>
 
-      {/* Error Message */}
-      {error ? (
-        <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-lg text-sm text-destructive">
+      {error && (
+        <div className="bg-destructive/15 p-3 rounded-md border border-destructive/20 text-destructive text-sm font-medium">
           {error}
         </div>
-      ) : null}
+      )}
 
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-foreground">Nama Bahan</label>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Contoh: Kentang"
-          className="h-11 px-4 text-sm"
-        />
-      </div>
+      {/* Main Form Layout using Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        
+        {/* Kolom Kiri: Informasi Dasar */}
+        <div className="space-y-4">
+            <h3 className="text-lg font-semibold tracking-tight">Informasi Dasar</h3>
+            <div className="grid gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="name">Nama Bahan</Label>
+                    <Input
+                        id="name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Contoh: Daging Sapi Premium"
+                        className="h-10"
+                    />
+                </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-foreground">Unit</label>
-        <select
-          className="h-11 w-full rounded-md border border-border bg-background px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-          value={unit}
-          aria-label="select"
-          onChange={(e) => setUnit(e.target.value)}
-        >
-          <option value="gram">gram</option>
-          <option value="pcs">pcs</option>
-          <option value="ml">ml</option>
-          <option value="lembar">lembar</option>
-          <option value="sachet">sachet</option>
-        </select>
-      </div>
+                <div className="space-y-2">
+                    <Label htmlFor="unit">Satuan Unit</Label>
+                    <div className="relative">
+                        <select
+                            aria-label="select"
+                            id="unit"
+                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            value={unit}
+                            onChange={(e) => setUnit(e.target.value)}
+                        >
+                            <option value="gram">gram (gr)</option>
+                            <option value="kg">kilogram (kg)</option>
+                            <option value="pcs">pieces (pcs)</option>
+                            <option value="ml">mililiter (ml)</option>
+                            <option value="liter">liter (l)</option>
+                            <option value="lembar">lembar</option>
+                            <option value="sachet">sachet</option>
+                            <option value="porsi">porsi</option>
+                        </select>
+                    </div>
+                    <p className="text-[0.8rem] text-muted-foreground">
+                        Satuan yang digunakan untuk menghitung stok.
+                    </p>
+                </div>
 
-      {mode === "create" ? (
-        <div className="space-y-2">
-          <label className="text-sm font-semibold text-foreground">Stok Awal</label>
-          <Input
-            type="number"
-            value={initialStock}
-            onChange={(e) => setInitialStock(Number(e.target.value))}
-            className="h-11 px-4 text-sm"
-          />
+                <div className="space-y-2">
+                    <Label htmlFor="notes">Catatan (Opsional)</Label>
+                    <Textarea 
+                        id="notes"
+                        value={notes} 
+                        onChange={(e) => setNotes(e.target.value)} 
+                        className="min-h-25 resize-none"
+                        placeholder="Info supplier, penyimpanan, dll..."
+                    />
+                </div>
+            </div>
         </div>
-      ) : null}
 
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-foreground">Minimum Stock (Threshold)</label>
-        <Input
-          type="number"
-          value={minStock}
-          onChange={(e) => setMinStock(Number(e.target.value))}
-          className="h-11 px-4 text-sm"
-        />
+        {/* Kolom Kanan: Manajemen Stok */}
+        <div className="space-y-4">
+            <h3 className="text-lg font-semibold tracking-tight">Manajemen Stok</h3>
+            <div className="grid gap-4 bg-muted/30 p-4 rounded-lg border">
+                
+                {mode === "create" && (
+                    <div className="space-y-2">
+                        <Label htmlFor="initialStock">Stok Awal</Label>
+                        <Input
+                            id="initialStock"
+                            type="number"
+                            min="0"
+                            value={initialStock}
+                            onChange={(e) => setInitialStock(Number(e.target.value))}
+                            className="bg-background"
+                        />
+                    </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="minStock">Minimum Alert</Label>
+                        <Input
+                            id="minStock"
+                            type="number"
+                            min="0"
+                            value={minStock}
+                            onChange={(e) => setMinStock(Number(e.target.value))}
+                            className="bg-background"
+                        />
+                        <p className="text-[0.8rem] text-muted-foreground">
+                            Batas notifikasi stok menipis.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="cost">Cost per Unit (Rp)</Label>
+                        <Input
+                            id="cost"
+                            type="number"
+                            min="0"
+                            value={cost}
+                            onChange={(e) => setCost(Number(e.target.value))}
+                            className="bg-background"
+                            placeholder="0"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-foreground">Cost per unit (Opsional)</label>
-        <Input
-          type="number"
-          value={cost}
-          onChange={(e) => setCost(Number(e.target.value))}
-          className="h-11 px-4 text-sm"
-        />
+      {/* Footer Actions */}
+      <div className="flex items-center justify-end gap-4 pt-4 border-t">
+        <Button
+            type="submit"
+            disabled={isPending}
+            className="min-w-30"
+        >
+            {isPending ? (
+                <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Menyimpan...
+                </>
+            ) : (
+                <>
+                    <Save className="mr-2 h-4 w-4" />
+                    {mode === "create" ? "Simpan Data" : "Update Data"}
+                </>
+            )}
+        </Button>
       </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-semibold text-foreground">Catatan (Opsional)</label>
-        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="px-4 py-2 text-sm min-h-24" />
-      </div>
-
-      {/* Submit Button */}
-      <Button
-        onClick={onSubmit}
-        disabled={isPending}
-        className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-md transition-all"
-      >
-        {isPending ? "Menyimpan..." : mode === "create" ? "Simpan" : "Update"}
-      </Button>
-    </div>
-  )
+    </form>
+  );
 }
