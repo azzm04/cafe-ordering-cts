@@ -28,7 +28,7 @@ export default function NotaHeader({
         color: "text-red-600 bg-red-100/50 border-red-200",
         icon: <XCircle className="w-10 h-10 sm:w-12 sm:h-12" />,
         title: "Pembayaran Gagal",
-        desc: "Maaf, transaksi tidak berhasil. Silakan coba lagi.",
+        desc: "Maaf, transaksi tidak berhasil. Silakan coba lagi",
         animate: false
       };
     }
@@ -39,7 +39,7 @@ export default function NotaHeader({
         color: "text-amber-600 bg-amber-100/50 border-amber-200",
         icon: <Hourglass className="w-10 h-10 sm:w-12 sm:h-12 animate-spin-slow" />, // Custom animation class or pulse
         title: "Menunggu Pembayaran",
-        desc: "Selesaikan pembayaran agar pesanan diproses.",
+        desc: "Silahkan menuju ke Kasir untuk membayar pesanan",
         animate: true
       };
     }
@@ -50,7 +50,7 @@ export default function NotaHeader({
         color: "text-emerald-600 bg-emerald-100/50 border-emerald-200",
         icon: <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12" />,
         title: "Pesanan Diterima!",
-        desc: "Pembayaran sukses. Pesanan masuk ke dapur.",
+        desc: "Pembayaran sukses. Pesanan masuk ke dapur",
         animate: true
       };
     }
@@ -72,7 +72,7 @@ export default function NotaHeader({
         color: "text-orange-600 bg-orange-100/50 border-orange-200",
         icon: <UtensilsCrossed className="w-10 h-10 sm:w-12 sm:h-12" />,
         title: "Selamat Menikmati",
-        desc: "Pesanan sudah diantar ke meja Anda.",
+        desc: "Pesanan sudah diantar ke meja Anda",
         animate: false
       };
     }
@@ -82,7 +82,7 @@ export default function NotaHeader({
       color: "text-primary bg-primary/10 border-primary/20",
       icon: <CheckCircle2 className="w-10 h-10 sm:w-12 sm:h-12" />,
       title: "Pesanan Selesai",
-      desc: "Terima kasih telah berkunjung.",
+      desc: "Terima kasih telah berkunjung",
       animate: false
     };
   };

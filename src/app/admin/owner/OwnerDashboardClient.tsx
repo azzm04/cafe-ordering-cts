@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import AlertsDropdown from "@/components/admin/AlertsDropdown";
 import StockAlertBadge from "@/components/admin/StockAlertBadge";
 import DashboardOperationalPanel, { type ActiveOrder } from "@/components/admin/dashboard/DashboardOperationalPanel";
+import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
 
 type TableRow = {
   id: string;
@@ -31,7 +32,7 @@ export default function OwnerDashboardClient() {
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchOverview = async () => {
+  const fetchOverview = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/admin/overview?t=${Date.now()}`, { cache: "no-store" });
@@ -46,11 +47,11 @@ export default function OwnerDashboardClient() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void fetchOverview();
-  }, []);
+  }, [fetchOverview]);
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -101,6 +102,11 @@ export default function OwnerDashboardClient() {
               Logout
             </Button>
           </div>
+        </div>
+
+        {/* Auto Refresh Indicator */}
+        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg border border-border/50">
+          <DashboardAutoRefresh intervalMs={5000} enabled={true} onRefresh={fetchOverview} />
         </div>
 
         {/* Konten operasional (reuse kasir content) */}

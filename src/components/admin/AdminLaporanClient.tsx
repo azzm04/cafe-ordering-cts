@@ -95,6 +95,8 @@ function getErrorMessage(e: unknown) {
   return "Unknown error";
 }
 
+// Total omset, total hpp, total profit, jumlah transaksi,grafik transaksi per jam, menu terlaris (ranking top 1 - 5), metode pembayaran (cash vs non-cash)
+
 export default function AdminLaporanClient() {
   const router = useRouter();
 

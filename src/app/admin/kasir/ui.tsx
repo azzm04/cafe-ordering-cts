@@ -8,6 +8,7 @@ import { CashPendingCard } from "@/components/admin/dashboard/CashPendingCard";
 import { OrderReceivedCard } from "@/components/admin/dashboard/OrderReceivedCard";
 import { OrderPreparingCard } from "@/components/admin/dashboard/OrderPreparingCard";
 import { OrderServedCard } from "@/components/admin/dashboard/OrderServedCard";
+import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
 import { confirmCashOrder, completeOrder, updateFulfillmentStatus } from "@/lib/admin-services/orders";
 
 export default function AdminKasirDashboardClient() {
@@ -22,6 +23,11 @@ export default function AdminKasirDashboardClient() {
           onRefresh={refresh}
           loading={loading}
         />
+
+        {/* Auto Refresh Indicator */}
+        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg border border-border/50">
+          <DashboardAutoRefresh intervalMs={5000} enabled={true} onRefresh={refresh} />
+        </div>
 
         <TablesCard tables={tables} />
 
