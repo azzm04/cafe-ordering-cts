@@ -1,9 +1,10 @@
 "use client";
 
-import Link from "next/link";
+// Link sudah tidak dibutuhkan lagi karena kita menggunakan window.open
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner"; // Tambahkan import ini
 import type { ActiveOrder, FulfillmentStatus } from "@/lib/admin-services/overview";
 import { formatWaktuID, timeAgoShort } from "@/lib/time";
 
@@ -14,6 +15,22 @@ export function OrderPreparingCard({
   items: ActiveOrder[];
   onSetStatus: (orderId: string, status: FulfillmentStatus) => void;
 }) {
+  
+  // Logic handlePrint ditambahkan di sini
+  const handlePrint = (url: string, type: 'kitchen' | 'bar') => {
+    const printWindow = window.open(
+      url,
+      '_blank',
+      'width=800,height=600,menubar=no,toolbar=no,location=no'
+    );
+    
+    if (printWindow) {
+      toast.success(`Membuka halaman print ${type === 'kitchen' ? 'dapur' : 'bar'}...`);
+    } else {
+      toast.error('Gagal membuka halaman print. Periksa popup blocker.');
+    }
+  };
+
   return (
     <Card className="p-4 sm:p-6 space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -45,17 +62,23 @@ export function OrderPreparingCard({
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2">
-                <Link href={`/admin/print/kitchen/${o.order_number}`} target="_blank" className="flex-1">
-                  <Button variant="secondary" className="w-full text-xs sm:text-sm">
-                    Print Dapur
-                  </Button>
-                </Link>
+                {/* Button Print Dapur diperbarui */}
+                <Button 
+                  variant="secondary" 
+                  className="flex-1 text-xs sm:text-sm"
+                  onClick={() => handlePrint(`/admin/print/kitchen/${o.order_number}`, 'kitchen')}
+                >
+                  🍳 Print Dapur
+                </Button>
 
-                <Link href={`/admin/print/bar/${o.order_number}`} target="_blank" className="flex-1">
-                  <Button variant="secondary" className="w-full text-xs sm:text-sm">
-                    Print Bar
-                  </Button>
-                </Link>
+                {/* Button Print Bar diperbarui */}
+                <Button 
+                  variant="secondary" 
+                  className="flex-1 text-xs sm:text-sm"
+                  onClick={() => handlePrint(`/admin/print/bar/${o.order_number}`, 'bar')}
+                >
+                  🍹 Print Bar
+                </Button>
 
                 <Button onClick={() => onSetStatus(o.id, "served")} className="flex-1">
                   Sudah Selesai
