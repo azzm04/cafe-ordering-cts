@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -18,10 +18,11 @@ import type { Category } from "@/types/admin/menu";
 import { apiCreateMenu } from "@/services/admin/menu";
 
 const schema = z.object({
-  categoryId: z.string().min(1),
-  name: z.string().min(1),
+  categoryId: z.string().min(1, "Kategori wajib dipilih"),
+  name: z.string().min(1, "Nama menu wajib diisi"),
   description: z.string().optional(),
-  price: z.number().min(0),
+  price: z.coerce.number().min(0, "Harga tidak boleh minus").refine((val) => !isNaN(val), "Harga harus berupa angka"),
+  hpp: z.coerce.number().min(0, "HPP tidak boleh minus").refine((val) => !isNaN(val), "HPP harus berupa angka"),
   imageUrl: z.string().optional(),
   isAvailable: z.boolean(),
 });
@@ -43,17 +44,21 @@ export default function MenuHeaderActions({
   categories: Category[];
   onCreated: () => Promise<void>;
 }) {
-  const form = useForm<FormValues>({
+  const form = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
       categoryId: "",
       name: "",
       description: "",
       price: 0,
+      hpp: 0,
       imageUrl: "",
       isAvailable: true,
     },
-  });
+  } as const);
+
+  const categoryId = useWatch({ control: form.control, name: "categoryId" });
+  const isAvailable = useWatch({ control: form.control, name: "isAvailable" });
 
   const submit = async (values: FormValues) => {
     try {
@@ -62,12 +67,14 @@ export default function MenuHeaderActions({
         name: values.name,
         description: values.description ?? "",
         price: values.price,
+        hpp: values.hpp,
         imageUrl: values.imageUrl ?? "",
         isAvailable: values.isAvailable,
       });
       toast.success("Menu berhasil dibuat");
       form.reset();
       await onCreated();
+      setOpenCreate(false); 
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Error");
     }
@@ -92,10 +99,11 @@ export default function MenuHeaderActions({
         </Button>
         
         <Link href="/admin/ingredients" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
-                Ingredients
-              </Button>
-            </Link>
+          <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+            Ingredients
+          </Button>
+        </Link>
+        
         <Link href="/admin/archived-menu">
           <Button variant="outline">Lihat Arsip</Button>
         </Link>
@@ -113,7 +121,7 @@ export default function MenuHeaderActions({
             <form className="space-y-3" onSubmit={form.handleSubmit(submit)}>
               <div className="space-y-1">
                 <Label>Kategori</Label>
-                <Select value={form.watch("categoryId")} onValueChange={(v) => form.setValue("categoryId", v)}>
+                <Select value={categoryId} onValueChange={(v) => form.setValue("categoryId", v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Pilih kategori" />
                   </SelectTrigger>
@@ -125,16 +133,49 @@ export default function MenuHeaderActions({
                     ))}
                   </SelectContent>
                 </Select>
+                {form.formState.errors.categoryId && (
+                  <p className="text-[0.8rem] text-destructive font-medium">
+                    {form.formState.errors.categoryId.message}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
                 <Label>Nama Menu</Label>
                 <Input {...form.register("name")} placeholder="Contoh: Nasi Menchi Saus BBQ" />
+                {/* --- MENAMPILKAN ERROR NAMA --- */}
+                {form.formState.errors.name && (
+                  <p className="text-[0.8rem] text-destructive font-medium">
+                    {form.formState.errors.name.message}
+                  </p>
+                )}
               </div>
 
-              <div className="space-y-1">
-                <Label>Harga (Rp)</Label>
-                <Input type="number" {...form.register("price", { valueAsNumber: true })} />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>Harga Jual (Rp)</Label>
+                  <Input type="number" {...form.register("price", { valueAsNumber: true })} />
+                  {form.formState.errors.price && (
+                    <p className="text-[0.8rem] text-destructive font-medium">
+                      {form.formState.errors.price.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <Label>HPP / Modal (Rp)</Label>
+                  <Input 
+                    type="number" 
+                    {...form.register("hpp", { valueAsNumber: true })} 
+                    className="bg-muted/30"
+                    placeholder="0"
+                  />
+                  {form.formState.errors.hpp && (
+                    <p className="text-[0.8rem] text-destructive font-medium">
+                      {form.formState.errors.hpp.message}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -148,7 +189,7 @@ export default function MenuHeaderActions({
               </div>
 
               <div className="flex items-center gap-3 pt-2">
-                <Switch checked={form.watch("isAvailable")} onCheckedChange={(v) => form.setValue("isAvailable", v)} />
+                <Switch checked={isAvailable} onCheckedChange={(v) => form.setValue("isAvailable", v)} />
                 <span className="text-sm">Menu Tersedia</span>
               </div>
 

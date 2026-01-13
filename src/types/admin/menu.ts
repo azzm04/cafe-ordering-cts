@@ -10,6 +10,7 @@ export type MenuItemRow = {
   price: number;
   image_url: string | null;
   is_available: boolean;
+  hpp: number;
   created_at: string;
   categories?: { name: string } | null;
 };

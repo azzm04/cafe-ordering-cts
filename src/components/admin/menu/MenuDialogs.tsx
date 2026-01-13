@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -30,10 +30,11 @@ import { apiUpdateMenu } from "@/services/admin/menu";
 
 const schema = z.object({
   id: z.string().min(1),
-  categoryId: z.string().min(1),
-  name: z.string().min(1),
+  categoryId: z.string().min(1, "Kategori wajib dipilih"),
+  name: z.string().min(1, "Nama menu wajib diisi"),
   description: z.string().optional(),
-  price: z.number().min(0),
+  price: z.coerce.number().min(0, "Harga tidak boleh minus").refine((val) => !isNaN(val), "Harga harus berupa angka"),
+  hpp: z.coerce.number().min(0, "HPP tidak boleh minus").refine((val) => !isNaN(val), "HPP harus berupa angka"),
   imageUrl: z.string().optional(),
   isAvailable: z.boolean(),
 });
@@ -59,18 +60,21 @@ export default function MenuDialogs({
   setDeleteId: (v: string | null) => void;
   onConfirmDelete: () => void;
 }) {
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      id: "",
-      categoryId: "",
-      name: "",
-      description: "",
-      price: 0,
-      imageUrl: "",
-      isAvailable: true,
-    },
-  });
+  const form = useForm({
+      resolver: zodResolver(schema),
+      defaultValues: {
+        categoryId: "",
+        name: "",
+        description: "",
+        price: 0,
+        hpp: 0,
+        imageUrl: "",
+        isAvailable: true,
+      },
+    } as const);
+
+  const currentCategoryId = useWatch({ control: form.control, name: "categoryId" });
+  const currentIsAvailable = useWatch({ control: form.control, name: "isAvailable" });
 
   useEffect(() => {
     if (!editTarget) return;
@@ -80,6 +84,7 @@ export default function MenuDialogs({
       name: editTarget.name,
       description: editTarget.description ?? "",
       price: Number(editTarget.price) || 0,
+      hpp: Number((editTarget.hpp) || 0),
       imageUrl: editTarget.image_url ?? "",
       isAvailable: editTarget.is_available,
     });
@@ -93,11 +98,13 @@ export default function MenuDialogs({
         name: values.name,
         description: values.description ?? "",
         price: values.price,
+        hpp: values.hpp, 
         imageUrl: values.imageUrl ?? "",
         isAvailable: values.isAvailable,
       });
       toast.success("Menu berhasil diupdate");
       await onUpdated();
+      setOpenEdit(false);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Error");
     }
@@ -114,7 +121,7 @@ export default function MenuDialogs({
           <form className="space-y-3" onSubmit={form.handleSubmit(submit)}>
             <div className="space-y-1">
               <Label>Kategori</Label>
-              <Select value={form.watch("categoryId")} onValueChange={(v) => form.setValue("categoryId", v)}>
+              <Select value={currentCategoryId} onValueChange={(v) => form.setValue("categoryId", v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih kategori" />
                 </SelectTrigger>
@@ -126,16 +133,40 @@ export default function MenuDialogs({
                   ))}
                 </SelectContent>
               </Select>
+              {form.formState.errors.categoryId && (
+                <p className="text-[0.8rem] text-destructive font-medium">{form.formState.errors.categoryId.message}</p>
+              )}
             </div>
 
             <div className="space-y-1">
               <Label>Nama Menu</Label>
               <Input {...form.register("name")} />
+              {form.formState.errors.name && (
+                <p className="text-[0.8rem] text-destructive font-medium">{form.formState.errors.name.message}</p>
+              )}
             </div>
 
-            <div className="space-y-1">
-              <Label>Harga (Rp)</Label>
-              <Input type="number" {...form.register("price", { valueAsNumber: true })} />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Harga (Rp)</Label>
+                <Input type="number" {...form.register("price", { valueAsNumber: true })} />
+                {form.formState.errors.price && (
+                  <p className="text-[0.8rem] text-destructive font-medium">{form.formState.errors.price.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <Label>HPP / Modal (Rp)</Label>
+                <Input 
+                  type="number" 
+                  {...form.register("hpp", { valueAsNumber: true })} 
+                  className="bg-muted/30"
+                  placeholder="0"
+                />
+                {form.formState.errors.hpp && (
+                  <p className="text-[0.8rem] text-destructive font-medium">{form.formState.errors.hpp.message}</p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -149,7 +180,7 @@ export default function MenuDialogs({
             </div>
 
             <div className="flex items-center gap-3 pt-2">
-              <Switch checked={form.watch("isAvailable")} onCheckedChange={(v) => form.setValue("isAvailable", v)} />
+              <Switch checked={currentIsAvailable} onCheckedChange={(v) => form.setValue("isAvailable", v)} />
               <span className="text-sm">Menu Tersedia</span>
             </div>
 

@@ -47,6 +47,7 @@ export async function apiCreateMenu(payload: {
   description: string;
   price: number;
   imageUrl: string;
+  hpp?: number; 
   isAvailable: boolean;
 }) {
   const res = await fetch("/api/admin/menu-items/create", {
@@ -65,6 +66,7 @@ export async function apiUpdateMenu(payload: {
   description: string;
   price: number;
   imageUrl: string;
+  hpp?: number; 
   isAvailable: boolean;
 }) {
   const res = await fetch("/api/admin/menu-items/update", {
