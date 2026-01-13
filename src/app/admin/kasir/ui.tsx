@@ -1,3 +1,4 @@
+// admin/kasir/ui.tsx
 "use client";
 
 import { toast } from "sonner";
@@ -10,9 +11,30 @@ import { OrderPreparingCard } from "@/components/admin/dashboard/OrderPreparingC
 import { OrderServedCard } from "@/components/admin/dashboard/OrderServedCard";
 import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
 import { confirmCashOrder, completeOrder, updateFulfillmentStatus } from "@/lib/admin-services/orders";
+import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
 
 export default function AdminKasirDashboardClient() {
   const { tables, loading, refresh, cashPending, receivedPaid, preparing, activeServed } = useAdminOverview();
+
+  useAutoCancelExpiredOrders({
+    enabled: true,
+    intervalMs: 15 * 60 * 1000, // Cek setiap 15 menit
+    onSuccess: (result) => {
+      if (result.cancelled > 0) {
+        toast.warning(
+          `${result.cancelled} order cash expired dibatalkan otomatis`,
+          {
+            description: `Order: ${result.orders.join(", ")}`,
+            duration: 5000,
+          }
+        );
+        void refresh();
+      }
+    },
+    onError: (error) => {
+      console.error("Auto-cancel client error:", error);
+    },
+  });
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
@@ -24,7 +46,6 @@ export default function AdminKasirDashboardClient() {
           loading={loading}
         />
 
-        {/* Auto Refresh Indicator */}
         <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg border border-border/50">
           <DashboardAutoRefresh intervalMs={5000} enabled={true} onRefresh={refresh} />
         </div>

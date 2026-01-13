@@ -8,6 +8,7 @@ import AlertsDropdown from "@/components/admin/AlertsDropdown";
 import StockAlertBadge from "@/components/admin/StockAlertBadge";
 import DashboardOperationalPanel, { type ActiveOrder } from "@/components/admin/dashboard/DashboardOperationalPanel";
 import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
+import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
 
 type TableRow = {
   id: string;
@@ -52,6 +53,29 @@ export default function OwnerDashboardClient() {
   useEffect(() => {
     void fetchOverview();
   }, [fetchOverview]);
+
+  // Auto-cancel expired cash orders setiap 15 menit
+  useAutoCancelExpiredOrders({
+    enabled: true,
+    intervalMs: 15 * 60 * 1000, // 15 menit
+    onSuccess: (result) => {
+      if (result.cancelled > 0) {
+        toast.warning(
+          `${result.cancelled} order cash expired dibatalkan otomatis`,
+          {
+            description: `Order: ${result.orders.join(", ")}`,
+            duration: 5000,
+          }
+        );
+        // Refresh dashboard untuk update data
+        void fetchOverview();
+      }
+    },
+    onError: (error) => {
+      console.error("Auto-cancel error:", error);
+      // Tidak perlu toast error karena bisa spam di console
+    },
+  });
 
   return (
     <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
