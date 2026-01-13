@@ -1,4 +1,3 @@
-// src/components/admin/HistoryList.tsx
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ type Props = {
   totalPages: number;
   onPrevPage: () => void;
   onNextPage: () => void;
+  onDelete?: (id: string) => Promise<void> | void; 
 };
 
 export function HistoryList({
@@ -22,6 +22,7 @@ export function HistoryList({
   totalPages,
   onPrevPage,
   onNextPage,
+  onDelete,
 }: Props) {
   return (
     <Card className="p-4 space-y-3">
@@ -40,7 +41,11 @@ export function HistoryList({
       ) : (
         <div className="space-y-3">
           {items.map((order) => (
-            <HistoryOrderCard key={order.id} order={order} />
+            <HistoryOrderCard 
+                key={order.id} 
+                order={order} 
+                onDelete={onDelete ? () => onDelete(order.id) : undefined} 
+            />
           ))}
         </div>
       )}

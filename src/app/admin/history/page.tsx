@@ -1,7 +1,8 @@
-// src/app/admin/history/page.tsx
 "use client";
 
+import { useState, useEffect } from "react"; // Tambahkan useEffect & useState
 import Link from "next/link";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { HistoryFilters } from "@/components/admin/HistoryFilters";
 import { HistoryList } from "@/components/admin/HistoryList";
@@ -25,6 +26,48 @@ export default function AdminHistoryPage() {
     quickThisMonth,
     resetFilters,
   } = useHistory();
+
+  const [isOwner, setIsOwner] = useState(false);
+
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const res = await fetch("/api/admin/me");
+        if (res.ok) {
+          const data = await res.json();
+          // hanya role owner yang boleh delete
+          if (data?.role === "owner") {
+            setIsOwner(true);
+          }
+        }
+      } catch (err) {
+        console.error("Gagal cek role:", err);
+      }
+    };
+    checkRole();
+  }, []);
+
+  const handleDeleteOrder = async (orderId: string) => {
+    try {
+      const res = await fetch("/api/admin/history", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: orderId }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        toast.error(json.message || "Gagal menghapus pesanan");
+        return;
+      }
+
+      toast.success("Pesanan berhasil dihapus");
+      fetchHistory();
+    } catch (e) {
+      toast.error("Terjadi kesalahan jaringan");
+    }
+  };
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
@@ -87,6 +130,7 @@ export default function AdminHistoryPage() {
         totalPages={totalPages}
         onPrevPage={() => setPage(Math.max(1, filters.page - 1))}
         onNextPage={() => setPage(Math.min(totalPages, filters.page + 1))}
+        onDelete={isOwner ? handleDeleteOrder : undefined} 
       />
     </main>
   );

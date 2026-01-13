@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth-server";
+import { requireOwner } from "@/lib/admin-auth-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type PaymentStatus = "pending" | "paid" | "failed" | "expired";
@@ -131,4 +132,35 @@ export async function GET(req: Request) {
     total,
     totalPages,
   });
+}
+
+export async function DELETE(req: Request) {
+  // 1. Proteksi: Hanya Owner yang boleh
+  const guard = await requireOwner();
+  if (guard instanceof NextResponse) return guard;
+
+  try {
+    const { id } = await req.json();
+
+    if (!id) {
+      return NextResponse.json({ message: "ID pesanan diperlukan" }, { status: 400 });
+    }
+
+    // 2. Hapus data (Supabase biasanya otomatis cascade delete item, tapi cek setting foreign key db kamu)
+    const { error } = await supabaseAdmin
+      .from("orders")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: "Pesanan berhasil dihapus permanen" });
+  } catch (error) {
+    return NextResponse.json(
+      { message: "Terjadi kesalahan server" },
+      { status: 500 }
+    );
+  }
 }
