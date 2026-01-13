@@ -149,7 +149,7 @@ export default function MenuDialogs({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Harga (Rp)</Label>
-                <Input type="number" {...form.register("price", { valueAsNumber: true })} />
+                <Input type="number" {...form.register("price")} />
                 {form.formState.errors.price && (
                   <p className="text-[0.8rem] text-destructive font-medium">{form.formState.errors.price.message}</p>
                 )}
@@ -159,7 +159,7 @@ export default function MenuDialogs({
                 <Label>HPP / Modal (Rp)</Label>
                 <Input 
                   type="number" 
-                  {...form.register("hpp", { valueAsNumber: true })} 
+                  {...form.register("hpp")} 
                   className="bg-muted/30"
                   placeholder="0"
                 />

@@ -2,604 +2,406 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { format, startOfMonth, subDays } from "date-fns"; 
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { 
+  TrendingUp, 
+  Wallet, 
+  CreditCard, 
+  ShoppingCart, 
+  DollarSign, 
+  Package 
+} from "lucide-react";
+
+// --- TIPE DATA ---
+type TopMenu = {
+  name: string;
+  qty: number;
+  omzet: number;
+};
 
 type ReportResponse = {
   range: { from: string; to: string };
-  totalOmzet: number;
-  breakdown: { cash: number; nonCash: number };
-  topMenus: Array<{
-    menu_item_id: string;
-    name: string;
-    qty: number;
+  summary: {
     omzet: number;
-  }>;
+    hpp: number;
+    profit: number;
+    transactions: number;
+  };
+  breakdown: { cash: number; nonCash: number };
+  topMenus: TopMenu[];
+  hourlyStats: number[];
 };
 
 type ApiErrorResponse = {
   message: string;
 };
 
-function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
-
-function isApiErrorResponse(v: unknown): v is ApiErrorResponse {
-  return isObject(v) && typeof v.message === "string";
-}
-
-function isReportResponse(v: unknown): v is ReportResponse {
-  if (!isObject(v)) return false;
-
-  const range = v.range;
-  const breakdown = v.breakdown;
-  const topMenus = v.topMenus;
-
-  if (
-    !isObject(range) ||
-    typeof range.from !== "string" ||
-    typeof range.to !== "string"
-  )
-    return false;
-  if (typeof v.totalOmzet !== "number") return false;
-
-  if (
-    !isObject(breakdown) ||
-    typeof breakdown.cash !== "number" ||
-    typeof breakdown.nonCash !== "number"
-  )
-    return false;
-
-  if (!Array.isArray(topMenus)) return false;
-
-  for (const m of topMenus) {
-    if (!isObject(m)) return false;
-    if (typeof m.menu_item_id !== "string") return false;
-    if (typeof m.name !== "string") return false;
-    if (typeof m.qty !== "number") return false;
-    if (typeof m.omzet !== "number") return false;
-  }
-
-  return true;
-}
-
+// --- HELPER FUNCTIONS ---
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(n);
 }
 
-function yyyyMmDd(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+// --- KOMPONEN GRAFIK (Hourly Chart - Gradient Style) ---
+function HourlyChart({ data }: { data: number[] }) {
+  const maxVal = Math.max(...data, 1);
+  const avgVal = data.reduce((a, b) => a + b, 0) / (data.length || 1);
+  
+  return (
+    <div className="w-full space-y-3">
+      {/* Chart Grid */}
+      <div className="w-full h-56 flex items-end gap-1.5 px-1 py-2 border border-border/50 rounded-lg bg-muted/10">
+        {data.map((val, hour) => {
+          const heightPercent = (val / maxVal) * 100;
+          const isAboveAvg = val > avgVal;
+
+          return (
+            <div key={hour} className="flex-1 flex flex-col justify-end group relative">
+              {/* Tooltip */}
+              <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 text-[10px] bg-foreground text-background px-2.5 py-1.5 rounded-md pointer-events-none whitespace-nowrap z-10 shadow-lg transition-opacity font-medium">
+                {hour}:00 • {val} Trx
+              </div>
+
+              {/* Bar with Gradient Effect */}
+              <div
+                className={`w-full rounded-t-sm transition-all duration-500 ${
+                  val > 0
+                    ? isAboveAvg
+                      ? "bg-gradient-to-t from-primary to-primary/60 hover:from-primary/90 hover:to-primary/70 shadow-[0_0_10px_rgba(var(--primary),0.3)]"
+                      : "bg-gradient-to-t from-primary/50 to-primary/30 hover:from-primary/60 hover:to-primary/40"
+                    : "bg-muted/30"
+                }`}
+                style={{ height: `${heightPercent}%`, minHeight: val > 0 ? "6px" : "2px" }}
+              />
+
+              {/* Hour Label (Setiap 3 jam) */}
+              <span className="text-[9px] text-muted-foreground text-center mt-2 font-medium hidden sm:block">
+                {hour % 3 === 0 ? `${hour}` : ""}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+        <span>Rata-rata: {avgVal.toFixed(1)} trx/jam</span>
+        <span>Puncak: {maxVal} trx</span>
+      </div>
+    </div>
+  );
 }
 
-function startOfMonth(d: Date) {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-
-function addDays(d: Date, days: number) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + days);
-  return x;
-}
-
-function getErrorMessage(e: unknown) {
-  if (e instanceof Error) return e.message;
-  if (typeof e === "string") return e;
-  return "Unknown error";
-}
-
-// Total omset, total hpp, total profit, jumlah transaksi,grafik transaksi per jam, menu terlaris (ranking top 1 - 5), metode pembayaran (cash vs non-cash)
-
+// --- KOMPONEN UTAMA ---
 export default function AdminLaporanClient() {
   const router = useRouter();
-
   const today = useMemo(() => new Date(), []);
-  const [from, setFrom] = useState<string>(yyyyMmDd(startOfMonth(today)));
-  const [to, setTo] = useState<string>(yyyyMmDd(today));
+  
+  // 2. USE DATE-FNS FOR INITIAL STATE
+  // Format tanggal ke "yyyy-MM-dd" untuk input type="date"
+  const [from, setFrom] = useState<string>(format(startOfMonth(today), "yyyy-MM-dd"));
+  const [to, setTo] = useState<string>(format(today, "yyyy-MM-dd"));
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [data, setData] = useState<ReportResponse | null>(null);
 
-  const quickToday = () => {
-    const t = new Date();
-    setFrom(yyyyMmDd(t));
-    setTo(yyyyMmDd(t));
-  };
-
-  const quickLast7Days = () => {
-    const t = new Date();
-    setFrom(yyyyMmDd(addDays(t, -6)));
-    setTo(yyyyMmDd(t));
-  };
-
-  const quickLast30Days = () => {
-    const t = new Date();
-    setFrom(yyyyMmDd(addDays(t, -29)));
-    setTo(yyyyMmDd(t));
-  };
-
-  const quickThisMonth = () => {
-    const t = new Date();
-    setFrom(yyyyMmDd(startOfMonth(t)));
-    setTo(yyyyMmDd(t));
-  };
-
-  const fetchReport = async () => {
+  // --- Fetch Data ---
+  const fetchReportManual = async (startDate: string, endDate: string) => {
     setLoading(true);
     setErr(null);
-
     try {
-      const res = await fetch(
-        `/api/admin/reports/summary?from=${from}&to=${to}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        }
-      );
+      const res = await fetch(`/api/admin/reports/summary?from=${startDate}&to=${endDate}`, {
+        cache: "no-store",
+      });
 
       if (res.status === 401) {
         router.replace("/admin/login");
         return;
       }
-      if (res.status === 403) {
-        router.replace("/admin");
-        return;
-      }
 
-      const json: unknown = await res.json().catch(() => null);
+      const json = await res.json() as unknown;
 
       if (!res.ok) {
-        const msg = isApiErrorResponse(json)
-          ? json.message
-          : "Gagal memuat laporan";
-        throw new Error(msg);
+        const message = (json as ApiErrorResponse)?.message || "Gagal memuat laporan";
+        throw new Error(message);
       }
 
-      if (!isReportResponse(json)) {
-        throw new Error("Format response laporan tidak valid");
-      }
-
-      setData(json);
+      setData(json as ReportResponse);
     } catch (e: unknown) {
-      setErr(getErrorMessage(e));
+      setErr(e instanceof Error ? e.message : "Terjadi kesalahan yang tidak diketahui");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickFilter = async (filterFn: () => void) => {
-    filterFn();
-    setTimeout(() => fetchReport(), 0);
+  const fetchReport = () => fetchReportManual(from, to);
+
+  // 3. USE DATE-FNS FOR QUICK FILTERS
+  const handleQuickFilter = (type: 'today' | '7days' | '30days' | 'month') => {
+    const t = new Date();
+    let newFrom = "";
+    const newTo = format(t, "yyyy-MM-dd");
+
+    switch (type) {
+        case 'today':
+            newFrom = format(t, "yyyy-MM-dd");
+            break;
+        case '7days':
+            // Mundur 6 hari ke belakang (total 7 hari termasuk hari ini)
+            newFrom = format(subDays(t, 6), "yyyy-MM-dd");
+            break;
+        case '30days':
+            newFrom = format(subDays(t, 29), "yyyy-MM-dd");
+            break;
+        case 'month':
+            newFrom = format(startOfMonth(t), "yyyy-MM-dd");
+            break;
+    }
+
+    setFrom(newFrom);
+    setTo(newTo);
+    void fetchReportManual(newFrom, newTo);
   };
 
   useEffect(() => {
-    fetchReport();
+    void fetchReportManual(from, to);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const stats = useMemo(() => {
-    if (!data) return null;
-    const totalOrders = data.topMenus.reduce((sum, m) => sum + m.qty, 0);
-    const avgOrderValue = totalOrders > 0 ? data.totalOmzet / totalOrders : 0;
-    const cashPercentage =
-      data.totalOmzet > 0 ? (data.breakdown.cash / data.totalOmzet) * 100 : 0;
-    const nonCashPercentage = 100 - cashPercentage;
-    return {
-      totalOrders,
-      avgOrderValue,
-      cashPercentage,
-      nonCashPercentage,
-    };
-  }, [data]);
-
   const exportCSV = () => {
     if (!data) return;
-
     const rows = [
       ["Laporan Penjualan Coklat Tepi Sawah"],
-      [`Periode: ${data.range.from} hingga ${data.range.to}`],
+      [`Periode: ${data.range.from} s/d ${data.range.to}`],
       [],
       ["RINGKASAN"],
-      ["Metrik", "Nilai"],
-      ["Total Omzet", formatIDR(data.totalOmzet)],
-      ["Cash", formatIDR(data.breakdown.cash)],
-      ["Non-Cash", formatIDR(data.breakdown.nonCash)],
-      ["Total Item Terjual", stats?.totalOrders.toString() || "0"],
-      ["Nilai Rata-rata Per Item", formatIDR(stats?.avgOrderValue || 0)],
+      ["Total Omzet", formatIDR(data.summary.omzet)],
+      ["Total HPP", formatIDR(data.summary.hpp)],
+      ["Total Profit", formatIDR(data.summary.profit)],
+      ["Transaksi", data.summary.transactions.toString()],
       [],
-      ["MENU TERLARIS (TOP 10)"],
-      ["Rank", "Nama Menu", "Jumlah Terjual", "Omzet"],
-      ...data.topMenus.map((m, idx) => [
-        (idx + 1).toString(),
-        m.name,
-        m.qty.toString(),
-        formatIDR(m.omzet),
-      ]),
+      ["MENU TERLARIS"],
+      ["Nama", "Qty", "Omzet"],
+      ...data.topMenus.map(m => [m.name, m.qty.toString(), formatIDR(m.omzet)])
     ];
 
-    const csv = rows
-      .map((row) => row.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `laporan-${data.range.from}-${data.range.to}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Laporan_${data.range.from}_${data.range.to}.csv`;
     link.click();
-    document.body.removeChild(link);
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex-1">
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Laporan Penjualan
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-2">
-              Analisis omzet, penjualan menu, dan insights bisnis Anda
+    <main className="min-h-screen bg-background pb-10">
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 space-y-6">
+        
+        {/* HEADER */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Laporan Penjualan</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Analisis omzet, profitabilitas, dan tren penjualan
             </p>
           </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2 flex-wrap sm:flex-nowrap w-full sm:w-auto">
-            <Button
-              variant="outline"
-              onClick={() => router.push("/admin")}
-              className="flex-1 sm:flex-none text-sm"
-            >
-              Kembali
-            </Button>
-            <Button
-              onClick={handlePrint}
-              variant="outline"
-              className="flex-1 sm:flex-none text-sm bg-transparent"
-            >
-              Cetak
-            </Button>
-            <Button
-              onClick={exportCSV}
-              disabled={!data}
-              className="flex-1 sm:flex-none text-sm"
-            >
-              Export CSV
-            </Button>
+          <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+             <Button variant="outline" onClick={() => router.push("/admin")}>Kembali</Button>
+             <Button onClick={() => window.print()} variant="secondary">Cetak PDF</Button>
+             <Button onClick={exportCSV} disabled={!data}>Export CSV</Button>
           </div>
         </div>
 
-        {/* Filter Section - Improved for Mobile */}
-        <Card className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {/* Date Inputs */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-            <div className="col-span-1 flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">
-                Dari
-              </label>
-              <input
-                type="date"
-                aria-label="date"
-                className="h-10 px-3 rounded-lg border border-input text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-              />
-            </div>
-
-            <div className="col-span-1 flex flex-col gap-2">
-              <label className="text-xs font-semibold text-muted-foreground uppercase">
-                Sampai
-              </label>
-              <input
-                type="date"
-                aria-label="date"
-                className="h-10 px-3 rounded-lg border border-input text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-              />
-            </div>
-
-            <div className="col-span-2 sm:col-span-1 flex flex-col gap-2 sm:justify-end">
-              <label className="text-xs font-semibold text-muted-foreground uppercase invisible">
-                _
-              </label>
-              <Button
-                onClick={fetchReport}
-                disabled={loading}
-                className="h-10 text-sm font-medium"
-              >
-                {loading ? "Memuat..." : "Terapkan"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Quick Filters */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => handleQuickFilter(quickToday)}
-              disabled={loading}
-              className="text-xs sm:text-sm flex-1 sm:flex-none bg-transparent"
-            >
-              Hari ini
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleQuickFilter(quickLast7Days)}
-              disabled={loading}
-              className="text-xs sm:text-sm flex-1 sm:flex-none bg-transparent"
-            >
-              7 hari
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleQuickFilter(quickLast30Days)}
-              disabled={loading}
-              className="text-xs sm:text-sm flex-1 sm:flex-none bg-transparent"
-            >
-              30 hari
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleQuickFilter(quickThisMonth)}
-              disabled={loading}
-              className="text-xs sm:text-sm flex-1 sm:flex-none bg-transparent"
-            >
-              Bulan ini
-            </Button>
-          </div>
-
-          {/* Status Messages */}
-          <div className="space-y-2">
-            {err && (
-              <p className="text-sm text-destructive font-medium">{err}</p>
-            )}
-            {data && (
-              <p className="text-sm text-muted-foreground">
-                Range:{" "}
-                <span className="font-semibold text-foreground">
-                  {data.range.from}
-                </span>{" "}
-                s/d{" "}
-                <span className="font-semibold text-foreground">
-                  {data.range.to}
-                </span>
-              </p>
-            )}
-          </div>
-        </Card>
-
-        {/* Main Statistics Grid */}
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
-          <div className="grid gap-4 grid-cols-5 sm:grid-cols-5 lg:grid-cols-5 min-w-full sm:min-w-0 px-4 sm:px-0">
-            <Card className="p-4 sm:p-6 flex-shrink-0 sm:flex-shrink">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                Total Omzet
-              </p>
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold mt-3 break-words">
-                {data ? formatIDR(data.totalOmzet) : "-"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                {data && stats ? `${stats.totalOrders} item terjual` : "-"}
-              </p>
-            </Card>
-
-            <Card className="p-4 sm:p-6 flex-shrink-0 sm:flex-shrink">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                Cash
-              </p>
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold mt-3 break-words">
-                {data ? formatIDR(data.breakdown.cash) : "-"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                {data && stats ? `${stats.cashPercentage.toFixed(1)}%` : "-"}
-              </p>
-            </Card>
-
-            <Card className="p-4 sm:p-6 flex-shrink-0 sm:flex-shrink">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                Non-Cash
-              </p>
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold mt-3 break-words">
-                {data ? formatIDR(data.breakdown.nonCash) : "-"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                {data && stats ? `${stats.nonCashPercentage.toFixed(1)}%` : "-"}
-              </p>
-            </Card>
-
-            <Card className="p-4 sm:p-6 flex-shrink-0 sm:flex-shrink">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                Total Item
-              </p>
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold mt-3">
-                {data && stats ? stats.totalOrders : "-"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                {data && stats
-                  ? `Rp ${Math.floor(stats.avgOrderValue).toLocaleString(
-                      "id-ID"
-                    )}/item`
-                  : "-"}
-              </p>
-            </Card>
-
-            <Card className="p-4 sm:p-6 flex-shrink-0 sm:flex-shrink">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider whitespace-nowrap">
-                Rata-rata
-              </p>
-              <p className="text-xl sm:text-2xl lg:text-3xl font-bold mt-3 break-words">
-                {data && stats ? formatIDR(stats.avgOrderValue) : "-"}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">per item</p>
-            </Card>
-          </div>
-        </div>
-
-        {/* Payment Method Breakdown */}
-        <Card className="p-4 sm:p-6">
-          <h2 className="text-lg sm:text-xl font-semibold">
-            Analisis Metode Pembayaran
-          </h2>
-          {data && stats ? (
-            <div className="mt-6 space-y-6">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Cash</span>
-                  <span className="text-sm sm:text-base font-semibold">
-                    {stats.cashPercentage.toFixed(1)}%
-                  </span>
-                </div>
-                <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all duration-500"
-                    style={{ width: `${stats.cashPercentage}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {formatIDR(data.breakdown.cash)}
-                </p>
+        {/* FILTER CONTROL */}
+        <Card className="p-4 bg-muted/20 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="grid grid-cols-2 gap-4 flex-1 w-full">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Dari Tanggal</label>
+                <input 
+                  aria-label="input dari tanggal laporan"
+                  type="date" 
+                  value={from} 
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="w-full h-9 px-3 rounded-md border text-sm"
+                />
               </div>
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Non-Cash</span>
-                  <span className="text-sm sm:text-base font-semibold">
-                    {stats.nonCashPercentage.toFixed(1)}%
-                  </span>
-                </div>
-                <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-secondary transition-all duration-500"
-                    style={{ width: `${stats.nonCashPercentage}%` }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {formatIDR(data.breakdown.nonCash)}
-                </p>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase text-muted-foreground">Sampai Tanggal</label>
+                <input 
+                  aria-label="input sampai tanggal laporan"
+                  type="date" 
+                  value={to} 
+                  onChange={(e) => setTo(e.target.value)}
+                  className="w-full h-9 px-3 rounded-md border text-sm"
+                />
               </div>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground mt-4">Belum ada data</p>
-          )}
-        </Card>
-
-        {/* Top 10 Menu */}
-        <Card className="p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <h2 className="text-lg sm:text-xl font-semibold">Menu Terlaris</h2>
-            <p className="text-xs text-muted-foreground">Top 10</p>
+            <Button onClick={fetchReport} disabled={loading} className="w-full sm:w-auto">
+              {loading ? "Memuat..." : "Terapkan Laporan"}
+            </Button>
           </div>
 
-          <div className="space-y-3">
-            {!data ? (
-              <p className="text-sm text-muted-foreground py-4">
-                Memuat data...
-              </p>
-            ) : data.topMenus.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">
-                Tidak ada transaksi pada periode ini
-              </p>
-            ) : (
-              data.topMenus.map((m, idx) => (
-                <div
-                  key={m.menu_item_id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <span className="text-xs font-bold text-primary w-6 shrink-0">
-                      {idx + 1}.
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{m.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {m.qty} terjual
-                      </p>
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+            <Button variant="outline" size="sm" onClick={() => handleQuickFilter('today')} className="bg-background">Hari ini</Button>
+            <Button variant="outline" size="sm" onClick={() => handleQuickFilter('7days')} className="bg-background">7 hari terakhir</Button>
+            <Button variant="outline" size="sm" onClick={() => handleQuickFilter('30days')} className="bg-background">30 hari terakhir</Button>
+            <Button variant="outline" size="sm" onClick={() => handleQuickFilter('month')} className="bg-background">Bulan ini</Button>
+          </div>
+
+          {err && <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md font-medium">{err}</div>}
+        </Card>
+
+        {/* KONTEN UTAMA */}
+        {data && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            
+            {/* 1. EMPAT KARTU UTAMA (Omzet, HPP, Profit, Transaksi) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Omzet */}
+              <Card className="p-5 border-l-4 border-l-primary shadow-sm bg-gradient-to-br from-card to-primary/5">
+                <div className="flex items-center gap-2 text-primary mb-2">
+                  <DollarSign className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wide">Total Omzet</span>
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-primary truncate" title={formatIDR(data.summary.omzet)}>
+                    {formatIDR(data.summary.omzet)}
+                </div>
+              </Card>
+
+              {/* HPP */}
+              <Card className="p-5 border-l-4 border-l-orange-500 shadow-sm bg-gradient-to-br from-card to-orange-500/5">
+                <div className="flex items-center gap-2 text-orange-600 mb-2">
+                  <Package className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wide">Total HPP</span>
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-orange-700 truncate" title={formatIDR(data.summary.hpp)}>
+                    {formatIDR(data.summary.hpp)}
+                </div>
+              </Card>
+
+              {/* Profit */}
+              <Card className="p-5 border-l-4 border-l-emerald-500 shadow-sm bg-gradient-to-br from-emerald-50/30 to-emerald-500/5">
+                <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                  <TrendingUp className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wide">Total Profit</span>
+                </div>
+                <div className="text-xl sm:text-2xl font-bold text-emerald-700 truncate" title={formatIDR(data.summary.profit)}>
+                    {formatIDR(data.summary.profit)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Margin: {data.summary.omzet > 0 ? ((data.summary.profit / data.summary.omzet) * 100).toFixed(1) : 0}%
+                </p>
+              </Card>
+
+              {/* Transaksi */}
+              <Card className="p-5 border-l-4 border-l-purple-500 shadow-sm bg-gradient-to-br from-card to-purple-500/5">
+                <div className="flex items-center gap-2 text-purple-600 mb-2">
+                  <ShoppingCart className="w-4 h-4" />
+                  <span className="text-xs font-bold uppercase tracking-wide">Transaksi</span>
+                </div>
+                <div className="text-xl sm:text-2xl font-bold">{data.summary.transactions}</div>
+                <p className="text-xs text-muted-foreground mt-1">Order selesai</p>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* 2. CHART & PAYMENT */}
+              <Card className="p-6 lg:col-span-2 flex flex-col">
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold">Grafik Kepadatan Transaksi</h3>
+                  <p className="text-xs text-muted-foreground">Distribusi keramaian per jam (24 Jam)</p>
+                </div>
+                
+                {/* Custom Gradient Chart */}
+                <HourlyChart data={data.hourlyStats} />
+                
+                {/* Metode Pembayaran (Compact) */}
+                <div className="mt-8 pt-5 border-t border-border/60">
+                  <h4 className="text-sm font-semibold mb-3">Metode Pembayaran</h4>
+                  <div className="flex gap-8 text-sm mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-blue-100 rounded text-blue-600"><Wallet className="w-3 h-3" /></div>
+                      <div>
+                        <span className="text-xs text-muted-foreground block">Cash</span>
+                        <span className="font-bold">{formatIDR(data.breakdown.cash)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-slate-100 rounded text-slate-600"><CreditCard className="w-3 h-3" /></div>
+                      <div>
+                        <span className="text-xs text-muted-foreground block">Non-Cash</span>
+                        <span className="font-bold">{formatIDR(data.breakdown.nonCash)}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs text-muted-foreground">Omzet</p>
-                    <p className="font-semibold text-sm">
-                      {formatIDR(m.omzet)}
-                    </p>
+                  
+                  {/* Visual Bar */}
+                  <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden flex">
+                    <div 
+                      className="h-full bg-blue-500 transition-all duration-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]" 
+                      style={{ width: `${(data.breakdown.cash / (data.summary.omzet || 1)) * 100}%` }}
+                    />
+                    <div 
+                      className="h-full bg-slate-400 transition-all duration-500" 
+                      style={{ width: `${(data.breakdown.nonCash / (data.summary.omzet || 1)) * 100}%` }}
+                    />
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </Card>
+              </Card>
 
-        {/* Quick Insights */}
-        <Card className="p-4 sm:p-6 bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20">
-          <h2 className="text-lg sm:text-xl font-semibold mb-6">
-            Insight Cepat
-          </h2>
-          {data && stats ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase">
-                  Menu Terlaris
-                </p>
-                <p className="font-semibold text-sm sm:text-base mt-2">
-                  {data.topMenus[0]?.name || "-"}{" "}
-                  <span className="text-muted-foreground">
-                    ({data.topMenus[0]?.qty || 0} terjual)
-                  </span>
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase">
-                  Periode Laporan
-                </p>
-                <p className="font-semibold text-sm sm:text-base mt-2">
-                  {data.range.from} hingga {data.range.to}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase">
-                  Metode Dominan
-                </p>
-                <p className="font-semibold text-sm sm:text-base mt-2">
-                  {stats.cashPercentage > 50 ? "Cash" : "Non-Cash"} (
-                  {Math.max(
-                    stats.cashPercentage,
-                    stats.nonCashPercentage
-                  ).toFixed(1)}
-                  %)
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground uppercase">
-                  Nilai Rata-rata
-                </p>
-                <p className="font-semibold text-sm sm:text-base mt-2">
-                  {formatIDR(stats.avgOrderValue)}
-                </p>
-              </div>
+              {/* 3. TOP MENU */}
+              <Card className="p-6 h-fit">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-lg font-semibold">Menu Terlaris</h3>
+                  <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">TOP 5</span>
+                </div>
+                
+                <div className="space-y-4">
+                  {data.topMenus.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8 bg-muted/20 rounded-lg border border-dashed border-border/50">
+                      Belum ada data penjualan.
+                    </p>
+                  ) : (
+                    data.topMenus.map((menu, idx) => (
+                      <div key={idx} className="flex items-center justify-between border-b border-border/40 pb-3 last:border-0 last:pb-0 group">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className={`
+                            w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-sm
+                            ${idx === 0 ? 'bg-yellow-100 text-yellow-700' : 
+                              idx === 1 ? 'bg-slate-200 text-slate-700' : 
+                              idx === 2 ? 'bg-orange-100 text-orange-700' : 
+                              'bg-muted text-muted-foreground'}
+                          `}>
+                            {idx + 1}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">{menu.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{formatIDR(menu.omzet)}</p>
+                          </div>
+                        </div>
+                        <span className="text-sm font-bold ml-2 whitespace-nowrap bg-muted/30 px-2 py-0.5 rounded">
+                            {menu.qty} <span className="text-[10px] font-normal text-muted-foreground">pcs</span>
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Belum ada data untuk ditampilkan
-            </p>
-          )}
-        </Card>
+
+          </div>
+        )}
       </div>
     </main>
   );
