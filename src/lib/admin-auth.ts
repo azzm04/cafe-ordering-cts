@@ -1,20 +1,41 @@
 // src/lib/admin-auth.ts
+import { supabaseAdmin } from "@/lib/supabase/admin";
+
 export type AdminRole = "kasir" | "owner";
 
+export type AdminSessionData = {
+  id: string;
+  username: string;
+  role: AdminRole;
+  iat: number;
+};
+
 const cookieName = process.env.ADMIN_COOKIE_NAME ?? "cts_admin";
-const pinKasir = process.env.ADMIN_PIN_KASIR ?? "";
-const pinOwner = process.env.ADMIN_PIN_OWNER ?? "";
 const secret = process.env.ADMIN_AUTH_SECRET ?? "";
 
 export function getAdminCookieName() {
   return cookieName;
 }
 
-export function getRoleByPin(pin: string): AdminRole | null {
-  const p = pin.trim();
-  if (pinKasir && p === pinKasir) return "kasir";
-  if (pinOwner && p === pinOwner) return "owner";
-  return null;
+export async function getAdminByPin(pin: string) {
+  //  Cari user yang PIN-nya cocok dan masih aktif
+  const { data, error } = await supabaseAdmin
+    .from("admin_users")
+    .select("id, username, role")
+    .eq("pin", pin)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  // Return data user
+  return {
+    id: data.id,
+    username: data.username,
+    role: data.role as AdminRole,
+  };
 }
 
 function bufToHex(buffer: ArrayBuffer) {
@@ -37,10 +58,16 @@ async function hmacSha256Hex(key: string, msg: string) {
   return bufToHex(sig);
 }
 
-export async function signAdminSession(input: { role: AdminRole }) {
+export async function signAdminSession(input: { id: string; username: string; role: AdminRole }) {
   if (!secret) throw new Error("ADMIN_AUTH_SECRET belum diset di env");
 
-  const payloadObj = { role: input.role, iat: Date.now() };
+  const payloadObj: AdminSessionData = { 
+    id: input.id, 
+    username: input.username,
+    role: input.role, 
+    iat: Date.now() 
+  };
+  
   const payload = Buffer.from(JSON.stringify(payloadObj)).toString("base64url");
   const sig = await hmacSha256Hex(secret, payload);
   return `${payload}.${sig}`;
@@ -48,7 +75,7 @@ export async function signAdminSession(input: { role: AdminRole }) {
 
 export async function verifyAdminSession(
   token: string
-): Promise<{ role: AdminRole } | null> {
+): Promise<AdminSessionData | null> {
   if (!secret) return null;
 
   const [payload, sig] = token.split(".");
@@ -60,15 +87,17 @@ export async function verifyAdminSession(
   try {
     const json = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8")
-    ) as { role: AdminRole; iat: number };
+    ) as AdminSessionData;
 
+    // Validasi dasar
+    if (!json.id || !json.role) return null;
     if (json.role !== "kasir" && json.role !== "owner") return null;
 
-    // expire 7 hari
+    // Expire 7 hari
     const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
     if (Date.now() - json.iat > maxAgeMs) return null;
 
-    return { role: json.role };
+    return json;
   } catch {
     return null;
   }

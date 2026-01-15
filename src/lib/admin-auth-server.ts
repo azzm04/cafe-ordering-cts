@@ -1,9 +1,9 @@
 // src/lib/admin-auth-server.ts
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getAdminCookieName, verifyAdminSession, type AdminRole } from "@/lib/admin-auth";
+import { getAdminCookieName, verifyAdminSession, type AdminRole, type AdminSessionData } from "@/lib/admin-auth";
 
-export async function requireAdmin(): Promise<{ role: AdminRole } | NextResponse> {
+export async function requireAdmin(): Promise<AdminSessionData | NextResponse> {
   const cookieStore = await cookies();
   const token = cookieStore.get(getAdminCookieName())?.value ?? "";
   const session = await verifyAdminSession(token);
@@ -12,10 +12,10 @@ export async function requireAdmin(): Promise<{ role: AdminRole } | NextResponse
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  return { role: session.role };
+  return session; 
 }
 
-export async function requireOwner(): Promise<{ role: "owner" } | NextResponse> {
+export async function requireOwner(): Promise<AdminSessionData | NextResponse> {
   const res = await requireAdmin();
   if (res instanceof NextResponse) return res;
 
@@ -23,5 +23,5 @@ export async function requireOwner(): Promise<{ role: "owner" } | NextResponse> 
     return NextResponse.json({ message: "Forbidden (owner only)" }, { status: 403 });
   }
 
-  return { role: "owner" };
+  return res;
 }

@@ -54,27 +54,16 @@ export default function OwnerDashboardClient() {
     void fetchOverview();
   }, [fetchOverview]);
 
-  // Auto-cancel expired cash orders setiap 15 menit
   useAutoCancelExpiredOrders({
     enabled: true,
-    intervalMs: 15 * 60 * 1000, // 15 menit
+    intervalMs: 15 * 60 * 1000,
     onSuccess: (result) => {
       if (result.cancelled > 0) {
-        toast.warning(
-          `${result.cancelled} order cash expired dibatalkan otomatis`,
-          {
-            description: `Order: ${result.orders.join(", ")}`,
-            duration: 5000,
-          }
-        );
-        // Refresh dashboard untuk update data
+        toast.warning(`${result.cancelled} order cash expired dibatalkan otomatis`);
         void fetchOverview();
       }
     },
-    onError: (error) => {
-      console.error("Auto-cancel error:", error);
-      // Tidak perlu toast error karena bisa spam di console
-    },
+    onError: (error) => console.error(error),
   });
 
   return (
@@ -93,15 +82,11 @@ export default function OwnerDashboardClient() {
             </Button>
 
             <Link href="/admin/menu" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
-                Kelola Menu
-              </Button>
+              <Button variant="outline" className="w-full sm:w-auto bg-transparent">Kelola Menu</Button>
             </Link>
 
             <Link href="/admin/laporan" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
-                Laporan
-              </Button>
+              <Button variant="outline" className="w-full sm:w-auto bg-transparent">Laporan</Button>
             </Link>
 
             <div className="flex items-center gap-2">
@@ -110,9 +95,7 @@ export default function OwnerDashboardClient() {
             </div>
 
             <Link href="/admin/history" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
-                History Pesanan
-              </Button>
+              <Button variant="outline" className="w-full sm:w-auto bg-transparent">History Pesanan</Button>
             </Link>
 
             <Button
@@ -128,13 +111,17 @@ export default function OwnerDashboardClient() {
           </div>
         </div>
 
-        {/* Auto Refresh Indicator */}
         <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg border border-border/50">
           <DashboardAutoRefresh intervalMs={5000} enabled={true} onRefresh={fetchOverview} />
         </div>
 
-        {/* Konten operasional (reuse kasir content) */}
-        <DashboardOperationalPanel tables={tables} orders={orders} onRefresh={fetchOverview} />
+        {/* PASSING ADMIN ROLE = OWNER */}
+        <DashboardOperationalPanel 
+          tables={tables} 
+          orders={orders} 
+          onRefresh={fetchOverview} 
+          adminRole="owner" 
+        />
       </div>
     </main>
   );

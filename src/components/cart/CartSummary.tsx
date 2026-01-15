@@ -51,7 +51,7 @@ function CartSummary({ total, itemCount, tableNumber, onCheckout, variant }: Car
           </div>
           <div className="h-px bg-border/50 my-2" />
           <div className="flex justify-between items-end">
-            <span className="font-semibold text-foreground">Total Tagihan</span>
+            <span className="font-semibold text-foreground">Total Harga</span>
             <span className="font-black text-2xl text-primary">{formatRupiah(total)}</span>
           </div>
         </div>
