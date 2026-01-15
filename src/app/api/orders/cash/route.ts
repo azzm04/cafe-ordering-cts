@@ -11,7 +11,7 @@ type CashOrderBody = {
     price: number;
     notes?: string;
   }>;
-  voucherCode?: string; // <--- BARU: Tambahan properti voucher
+  voucherCode?: string; 
 };
 
 function generateOrderNumber() {
@@ -82,13 +82,11 @@ export async function POST(req: Request) {
       // proceed without strict validation if the check fails
     }
 
-    // 1. Hitung Subtotal (Original Amount)
     const original_amount = body.items.reduce(
       (acc, it) => acc + it.price * it.quantity,
       0
     );
 
-    // 2. Logic Voucher (BARU)
     let discount_amount = 0;
     let final_amount = original_amount;
     let validVoucherCode = null;
@@ -102,7 +100,6 @@ export async function POST(req: Request) {
         .single();
 
       if (voucher) {
-        // Cek minimal order
         if (original_amount >= (voucher.min_order_amount || 0)) {
           if (voucher.type === "percentage") {
             discount_amount = (original_amount * voucher.value) / 100;
@@ -115,7 +112,6 @@ export async function POST(req: Request) {
             discount_amount = voucher.value;
           }
 
-          // Pastikan diskon tidak minus atau melebihi total
           if (discount_amount > original_amount) discount_amount = original_amount;
           
           final_amount = original_amount - discount_amount;
@@ -126,17 +122,15 @@ export async function POST(req: Request) {
 
     const orderNumber = generateOrderNumber();
 
-    // 3. Simpan Order dengan rincian harga
     const { data: order, error: orderErr } = await supabaseServer
       .from("orders")
       .insert({
         table_id: table.id,
         order_number: orderNumber,
         
-        // --- DATA HARGA ---
         original_amount: original_amount,
         discount_amount: discount_amount,
-        total_amount: final_amount, // Harga akhir yang harus dibayar
+        total_amount: final_amount, 
         voucher_code: validVoucherCode,
         
         payment_status: "pending",

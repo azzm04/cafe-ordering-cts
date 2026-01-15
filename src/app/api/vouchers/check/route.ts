@@ -12,7 +12,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Kode voucher harus diisi" }, { status: 400 });
     }
 
-    // 1. Cari Voucher di DB
     const { data: voucher, error } = await supabaseAdmin
       .from("vouchers")
       .select("*")
@@ -26,16 +25,13 @@ export async function POST(req: Request) {
       }, { status: 404 });
     }
 
-    // 2. Cek Minimal Order
     if (totalAmount < (voucher.min_order_amount || 0)) {
-      // UBAH DISINI: Beri tahu kurang berapa lagi
       const kurang = (voucher.min_order_amount || 0) - totalAmount;
       return NextResponse.json({ 
         message: `Kurang Rp ${kurang.toLocaleString("id-ID")} lagi untuk pakai voucher ini.` 
       }, { status: 400 });
     }
 
-    // 3. Hitung Diskon
     let discountAmount = 0;
     if (voucher.type === "percentage") {
       discountAmount = (totalAmount * voucher.value) / 100;
@@ -48,7 +44,6 @@ export async function POST(req: Request) {
       discountAmount = voucher.value;
     }
 
-    // Pastikan diskon tidak melebihi total belanja
     if (discountAmount > totalAmount) {
       discountAmount = totalAmount;
     }
@@ -62,6 +57,7 @@ export async function POST(req: Request) {
     });
 
   } catch (error) {
+    console.error("Error checking voucher:", error);
     return NextResponse.json({ message: "Terjadi kesalahan server" }, { status: 500 });
   }
 }

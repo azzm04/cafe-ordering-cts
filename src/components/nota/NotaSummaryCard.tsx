@@ -16,8 +16,6 @@ type NotaSummaryCardProps = {
   effectiveFulfillmentStatus: FulfillmentStatus;
   items: OrderItemWithMenu[];
   totalAmount: number;
-  
-  // Props Optional (untuk backward compatibility)
   originalAmount?: number;
   discountAmount?: number;
   voucherCode?: string | null;
@@ -33,14 +31,11 @@ export default function NotaSummaryCard({
   effectiveFulfillmentStatus,
   items,
   totalAmount,
-  
-  // Ambil props baru
   originalAmount,
   discountAmount,
   voucherCode,
 }: NotaSummaryCardProps) {
 
-  // Logic: Jika originalAmount tidak ada (transaksi lama), gunakan totalAmount sebagai subtotal
   const subtotal = originalAmount ?? totalAmount;
   const hasDiscount = (discountAmount || 0) > 0;
 
@@ -102,7 +97,7 @@ export default function NotaSummaryCard({
 
         <Separator className="bg-border/60" />
 
-        {/* --- SECTION HARGA (UPDATED) --- */}
+        {/* --- SECTION HARGA --- */}
         <div className="space-y-3">
           
           {/* Subtotal */}
@@ -111,7 +106,6 @@ export default function NotaSummaryCard({
              <span>{formatRupiah(subtotal)}</span>
           </div>
 
-          {/* Diskon (Hanya muncul jika ada diskon) */}
           {hasDiscount && (
              <div className="flex justify-between text-sm text-emerald-600 font-medium animate-in fade-in slide-in-from-top-1">
                 <span className="flex items-center gap-1.5">

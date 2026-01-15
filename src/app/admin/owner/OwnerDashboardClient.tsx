@@ -6,9 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import AlertsDropdown from "@/components/admin/AlertsDropdown";
 import StockAlertBadge from "@/components/admin/StockAlertBadge";
-import DashboardOperationalPanel, { type ActiveOrder } from "@/components/admin/dashboard/DashboardOperationalPanel";
+import DashboardOperationalPanel, {
+  type ActiveOrder,
+} from "@/components/admin/dashboard/DashboardOperationalPanel";
 import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
 import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
+import VoucherManager from "@/components/admin/dashboard/VoucherManager";
 
 type TableRow = {
   id: string;
@@ -36,7 +39,9 @@ export default function OwnerDashboardClient() {
   const fetchOverview = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/overview?t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`/api/admin/overview?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       const json = (await res.json()) as unknown;
       if (!res.ok) throw new Error(safeMessage(json, "Gagal load dashboard"));
 
@@ -59,7 +64,9 @@ export default function OwnerDashboardClient() {
     intervalMs: 15 * 60 * 1000,
     onSuccess: (result) => {
       if (result.cancelled > 0) {
-        toast.warning(`${result.cancelled} order cash expired dibatalkan otomatis`);
+        toast.warning(
+          `${result.cancelled} order cash expired dibatalkan otomatis`
+        );
         void fetchOverview();
       }
     },
@@ -72,21 +79,49 @@ export default function OwnerDashboardClient() {
         {/* Header Owner */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Dashboard Owner</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Pantau operasional & akses cepat ke fitur manajemen</p>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Dashboard Owner
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Pantau operasional & akses cepat ke fitur manajemen
+            </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button variant="secondary" onClick={fetchOverview} disabled={loading} className="flex-1 sm:flex-none">
+            <Button
+              variant="secondary"
+              onClick={fetchOverview}
+              disabled={loading}
+              className="flex-1 sm:flex-none"
+            >
               {loading ? "Loading..." : "Refresh"}
             </Button>
 
             <Link href="/admin/menu" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">Kelola Menu</Button>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto bg-transparent"
+              >
+                Kelola Menu
+              </Button>
+            </Link>
+
+            <Link href="/admin/vouchers" className="flex-1 sm:flex-none">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto bg-transparent"
+              >
+                Kelola Voucher
+              </Button>
             </Link>
 
             <Link href="/admin/laporan" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">Laporan</Button>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto bg-transparent"
+              >
+                Laporan
+              </Button>
             </Link>
 
             <div className="flex items-center gap-2">
@@ -95,13 +130,19 @@ export default function OwnerDashboardClient() {
             </div>
 
             <Link href="/admin/history" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">History Pesanan</Button>
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto bg-transparent"
+              >
+                History Pesanan
+              </Button>
             </Link>
 
             <Button
               variant="outline"
               onClick={() => {
-                document.cookie = "cts_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                document.cookie =
+                  "cts_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
                 location.href = "/admin/login";
               }}
               className="flex-1 sm:flex-none"
@@ -112,16 +153,23 @@ export default function OwnerDashboardClient() {
         </div>
 
         <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg border border-border/50">
-          <DashboardAutoRefresh intervalMs={5000} enabled={true} onRefresh={fetchOverview} />
+          <DashboardAutoRefresh
+            intervalMs={5000}
+            enabled={true}
+            onRefresh={fetchOverview}
+          />
         </div>
 
         {/* PASSING ADMIN ROLE = OWNER */}
-        <DashboardOperationalPanel 
-          tables={tables} 
-          orders={orders} 
-          onRefresh={fetchOverview} 
-          adminRole="owner" 
+        <DashboardOperationalPanel
+          tables={tables}
+          orders={orders}
+          onRefresh={fetchOverview}
+          adminRole="owner"
         />
+
+        {/* Separator Visual */}
+        <div className="my-8 border-t border-border/40" />
       </div>
     </main>
   );

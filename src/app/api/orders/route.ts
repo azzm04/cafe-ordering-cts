@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
-// Tambahkan voucherCode di tipe Body
 type Body = {
   tableNumber: number;
   items: Array<{ menu_item_id: string; quantity: number; price: number; notes?: string }>;
-  voucherCode?: string; // <--- BARU
+  voucherCode?: string; 
 };
 
 function generateOrderNumber() {
@@ -27,7 +26,6 @@ export async function POST(req: Request) {
   if (!body.tableNumber) return NextResponse.json({ message: "tableNumber required" }, { status: 400 });
   if (!body.items?.length) return NextResponse.json({ message: "items required" }, { status: 400 });
 
-  // 1. Validasi Stok (Tetap Sama)
   try {
     const menuIds = [...new Set(body.items.map((it) => it.menu_item_id))];
     const { computeMaxPortionsForMenus } = await import("@/lib/inventory/index");
@@ -48,7 +46,6 @@ export async function POST(req: Request) {
     console.error("orders: computeMaxPortionsForMenus failed", err);
   }
 
-  // 2. Cek Meja (Tetap Sama)
   const { data: table, error: tableErr } = await supabaseServer
     .from("tables")
     .select("*")
@@ -58,10 +55,8 @@ export async function POST(req: Request) {
   if (tableErr || !table) return NextResponse.json({ message: "Table not found" }, { status: 404 });
   if (table.status !== "available") return NextResponse.json({ message: "Table not available" }, { status: 409 });
 
-  // 3. Hitung Subtotal (Gross Amount)
   const original_amount = body.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
   
-  // 4. LOGIKA VOUCHER (BARU)
   let discount_amount = 0;
   let final_amount = original_amount;
   let validVoucherCode = null;
@@ -86,7 +81,7 @@ export async function POST(req: Request) {
           discount_amount = voucher.value;
         }
 
-        // Pastikan diskon tidak minus
+        // state biar diskon ga minus
         if (discount_amount > original_amount) discount_amount = original_amount;
         
         final_amount = original_amount - discount_amount;
@@ -97,17 +92,15 @@ export async function POST(req: Request) {
 
   const order_number = generateOrderNumber();
 
-  // 5. Insert Order (Update kolom)
+  //  Insert Order (Update kolom)
   const { data: order, error: orderErr } = await supabaseServer
     .from("orders")
     .insert({
       table_id: table.id,
       order_number,
-      
-      // Simpan rincian harga
       original_amount: original_amount,
       discount_amount: discount_amount,
-      total_amount: final_amount, // Harga akhir yang harus dibayar
+      total_amount: final_amount, 
       voucher_code: validVoucherCode,
 
       payment_status: "pending",
@@ -118,7 +111,6 @@ export async function POST(req: Request) {
 
   if (orderErr || !order) return NextResponse.json({ message: orderErr?.message ?? "Failed create order" }, { status: 500 });
 
-  // 6. Insert Items (Tetap Sama)
   const orderItemsPayload = body.items.map((it) => ({
     order_id: order.id,
     menu_item_id: it.menu_item_id,

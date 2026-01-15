@@ -18,13 +18,13 @@ export default function PembayaranPage() {
   const {
     tableNumber,
     items,
-    total: subtotal, // Rename total jadi subtotal (gross)
+    total: subtotal, 
     method,
     setMethod,
     loading,
     snapReady,
     handleBack,
-    handlePay, // Ini perlu diupdate di hook
+    handlePay, 
   } = usePaymentLogic();
 
   // State lokal untuk diskon
@@ -33,12 +33,7 @@ export default function PembayaranPage() {
 
   const finalTotal = subtotal - discountAmount;
 
-  // Wrapper function untuk handlePay agar mengirim voucherCode
   const onPayClicked = () => {
-    // Kita panggil handlePay dari hook, tapi kita perlu pastikan hook tersebut
-    // mengirim voucherCode ke API.
-    // Jika handlePay menerima argumen, kirimkan di sini.
-    // Jika tidak, Anda harus update usePaymentLogic.ts (lihat panduan di bawah).
     handlePay(voucherCode);
   };
 
@@ -106,15 +101,12 @@ export default function PembayaranPage() {
           <PaymentAction
             loading={loading}
             method={method}
-            onPay={onPayClicked} // Gunakan wrapper function
+            onPay={onPayClicked} 
             disabled={
               loading ||
               items.length === 0 ||
               (method === "midtrans" && !snapReady && discountAmount === 0)
             }
-            // Note: Logika snapReady mungkin perlu disesuaikan jika ada diskon,
-            // karena harga berubah, token midtrans lama mungkin tidak valid.
-            // Idealnya tombol bayar akan trigger create order baru.
           />
         </div>
       </div>

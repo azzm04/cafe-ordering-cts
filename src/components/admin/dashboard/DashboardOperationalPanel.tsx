@@ -46,14 +46,13 @@ export default function DashboardOperationalPanel({
   tables,
   orders,
   onRefresh,
-  adminRole = "kasir", // Default ke kasir
+  adminRole = "kasir", 
 }: {
   tables: TableRow[];
   orders: ActiveOrder[];
   onRefresh: () => Promise<void>;
   adminRole?: "owner" | "kasir"; // Props adminRole
 }) {
-  // State untuk Dialog Diskon
   const [discountDialog, setDiscountDialog] = useState<ActiveOrder | null>(null);
 
   const cashPending = useMemo(
@@ -149,7 +148,6 @@ export default function DashboardOperationalPanel({
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      {/* 1. Status Meja */}
       <Card className="p-4 sm:p-6 space-y-4">
         <h2 className="text-lg font-semibold">Status Meja</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
@@ -169,7 +167,6 @@ export default function DashboardOperationalPanel({
         </div>
       </Card>
 
-      {/* 2. Tunai Pending (ADA DISKON) */}
       <Card className="p-4 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Tunai Pending</h2>
@@ -188,7 +185,6 @@ export default function DashboardOperationalPanel({
                   <div>
                     <div className="font-semibold">{o.order_number}</div>
                     <div className="text-xs sm:text-sm text-muted-foreground">
-                      {/* Format waktu seperti CashPendingCard */}
                       {formatWaktuID(o.created_at)} • {timeAgoShort(o.created_at)}
                     </div>
                     <div className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -196,12 +192,10 @@ export default function DashboardOperationalPanel({
                     </div>
                   </div>
                   
-                  {/* Harga & Info Diskon */}
                   <div>
                     <div className="text-lg sm:text-xl font-bold text-amber-700 text-right sm:text-left">
                       Rp {Number(o.total_amount).toLocaleString("id-ID")}
                     </div>
-                    {/* Tampilkan info jika ada diskon */}
                     {o.discount_amount && o.discount_amount > 0 && (
                       <div className="text-xs text-emerald-600 text-right">
                         Diskon: -Rp {o.discount_amount.toLocaleString("id-ID")}
@@ -212,7 +206,6 @@ export default function DashboardOperationalPanel({
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-2">
-                  {/* Button Diskon (Hanya Owner) */}
                   {adminRole === "owner" && (
                     <Button
                       variant="outline"
@@ -252,7 +245,6 @@ export default function DashboardOperationalPanel({
           <div className="space-y-3">
             {receivedPaid.map((o) => (
               <Card key={o.id} className="p-3 sm:p-4 space-y-3 border-l-4 border-l-accent">
-                {/* ... Isi card sama seperti sebelumnya ... */}
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                   <div>
                     <div className="font-semibold">{o.order_number}</div>
@@ -298,7 +290,6 @@ export default function DashboardOperationalPanel({
 
       {/* 4. Sedang Dibuat */}
       <Card className="p-4 sm:p-6 space-y-4">
-        {/* ... (Tidak ada perubahan logika, hanya render) ... */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">Sedang Dibuat</h2>
           <Badge variant="secondary" className="w-fit">Dalam Proses</Badge>

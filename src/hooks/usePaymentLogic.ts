@@ -40,19 +40,16 @@ export function usePaymentLogic() {
   // Actions
   const handleBack = () => router.back();
 
-  // --- UPDATE: Terima voucherCode ---
   const processMidtrans = async (voucherCode?: string) => {
     if (!snapReady)
       throw new Error("Midtrans Snap belum siap. Refresh halaman.");
     if (items.length === 0) throw new Error("Keranjang kosong.");
     if (!tableNumber) throw new Error("Nomor meja hilang.");
 
-    // Kita kirim voucherCode ke createTransaction (useOrder)
-    // Pastikan useOrder.ts nanti juga diupdate ya!
     const { orderNumber, snapToken } = await createTransaction({
       tableNumber,
       items: payloadItems,
-      voucherCode, // <--- TAMBAHAN
+      voucherCode,
     });
 
     window.snap.pay(snapToken, {
@@ -66,7 +63,6 @@ export function usePaymentLogic() {
     });
   };
 
-  // --- UPDATE: Terima voucherCode ---
   const processCash = async (voucherCode?: string) => {
     if (items.length === 0) throw new Error("Keranjang kosong.");
     if (!tableNumber) throw new Error("Nomor meja hilang.");
@@ -77,7 +73,7 @@ export function usePaymentLogic() {
       body: JSON.stringify({
         tableNumber,
         items: payloadItems,
-        voucherCode, // <--- TAMBAHAN: Kirim kode ke API Cash
+        voucherCode,
       }),
     });
 
@@ -103,7 +99,6 @@ export function usePaymentLogic() {
     router.push(`/nota/${orderNumber}`);
   };
 
-  // --- UPDATE: Terima parameter optional voucherCode ---
   const handlePay = async (voucherCode?: string) => {
     setLoading(true);
     try {
