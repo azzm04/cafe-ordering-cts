@@ -1,17 +1,46 @@
 import { formatRupiah } from "@/lib/utils";
 
-export function PaymentSummary({ tableNumber, total }: { tableNumber: number, total: number }) {
+export function PaymentSummary({ 
+  tableNumber, 
+  subtotal, 
+  discount, 
+  total 
+}: { 
+  tableNumber: number; 
+  subtotal: number;
+  discount: number;
+  total: number;
+}) {
   return (
-    <div className="grid grid-cols-2 gap-4">
-      <div className="rounded-2xl bg-muted/50 p-4 border border-border/50">
-        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Meja</span>
-        <p className="text-2xl font-bold text-foreground mt-1">#{tableNumber}</p>
+    <div className="space-y-4">
+      {/* Header Meja */}
+      <div className="flex items-center justify-between rounded-2xl bg-muted/50 p-4 border border-border/50">
+        <span className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Meja</span>
+        <p className="text-xl font-bold text-foreground">#{tableNumber}</p>
       </div>
-      <div className="rounded-2xl bg-primary/5 p-4 border border-primary/10">
-        <span className="text-xs text-primary/80 font-medium uppercase tracking-wider">Total</span>
-        <p className="text-xl sm:text-2xl font-black text-primary mt-1 break-words leading-tight">
-          {formatRupiah(total)}
-        </p>
+
+      {/* Rincian Harga */}
+      <div className="rounded-2xl bg-card border border-border/50 p-4 space-y-3">
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Subtotal</span>
+          <span className="font-medium">{formatRupiah(subtotal)}</span>
+        </div>
+        
+        {discount > 0 && (
+          <div className="flex justify-between text-sm text-emerald-600">
+            <span className="font-medium">Diskon Voucher</span>
+            <span className="font-bold">- {formatRupiah(discount)}</span>
+          </div>
+        )}
+
+        <div className="h-px bg-border/50" />
+
+        <div className="flex justify-between items-end">
+          <span className="font-bold text-lg">Total Bayar</span>
+          <span className="text-2xl font-black text-primary">
+            {formatRupiah(total)}
+          </span>
+        </div>
       </div>
     </div>
   );

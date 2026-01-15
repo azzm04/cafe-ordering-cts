@@ -7,9 +7,6 @@ import { useCartStore } from "@/store/cartStore";
 import { useMidtransSnap } from "@/hooks/useMidtransSnap";
 import { useOrder } from "@/hooks/useOrder";
 
-// Note: Definisi Window.snap sudah dipindah ke src/types.d.ts
-// Tidak perlu redeclare di sini.
-
 export type PaymentMethod = "midtrans" | "cash";
 
 export function usePaymentLogic() {
@@ -43,18 +40,21 @@ export function usePaymentLogic() {
   // Actions
   const handleBack = () => router.back();
 
-  const processMidtrans = async () => {
+  // --- UPDATE: Terima voucherCode ---
+  const processMidtrans = async (voucherCode?: string) => {
     if (!snapReady)
       throw new Error("Midtrans Snap belum siap. Refresh halaman.");
     if (items.length === 0) throw new Error("Keranjang kosong.");
     if (!tableNumber) throw new Error("Nomor meja hilang.");
 
+    // Kita kirim voucherCode ke createTransaction (useOrder)
+    // Pastikan useOrder.ts nanti juga diupdate ya!
     const { orderNumber, snapToken } = await createTransaction({
       tableNumber,
       items: payloadItems,
+      voucherCode, // <--- TAMBAHAN
     });
 
-    // window.snap sekarang dikenali otomatis dari types.d.ts
     window.snap.pay(snapToken, {
       onSuccess: () => {
         clearCart();
@@ -66,7 +66,8 @@ export function usePaymentLogic() {
     });
   };
 
-  const processCash = async () => {
+  // --- UPDATE: Terima voucherCode ---
+  const processCash = async (voucherCode?: string) => {
     if (items.length === 0) throw new Error("Keranjang kosong.");
     if (!tableNumber) throw new Error("Nomor meja hilang.");
 
@@ -76,6 +77,7 @@ export function usePaymentLogic() {
       body: JSON.stringify({
         tableNumber,
         items: payloadItems,
+        voucherCode, // <--- TAMBAHAN: Kirim kode ke API Cash
       }),
     });
 
@@ -101,11 +103,12 @@ export function usePaymentLogic() {
     router.push(`/nota/${orderNumber}`);
   };
 
-  const handlePay = async () => {
+  // --- UPDATE: Terima parameter optional voucherCode ---
+  const handlePay = async (voucherCode?: string) => {
     setLoading(true);
     try {
-      if (method === "midtrans") await processMidtrans();
-      else await processCash();
+      if (method === "midtrans") await processMidtrans(voucherCode);
+      else await processCash(voucherCode);
     } catch (e: unknown) {
       let errorMessage = "Terjadi kesalahan";
 

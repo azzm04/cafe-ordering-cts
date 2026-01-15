@@ -7,6 +7,7 @@ type CreateTransactionPayload = {
     price: number;
     notes?: string;
   }>;
+  voucherCode?: string;
 };
 
 type CreateTransactionResponse = {

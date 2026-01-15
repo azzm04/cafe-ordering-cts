@@ -11,6 +11,7 @@ type CashOrderBody = {
     price: number;
     notes?: string;
   }>;
+  voucherCode?: string; // <--- BARU: Tambahan properti voucher
 };
 
 function generateOrderNumber() {
@@ -81,18 +82,63 @@ export async function POST(req: Request) {
       // proceed without strict validation if the check fails
     }
 
-    const total = body.items.reduce(
+    // 1. Hitung Subtotal (Original Amount)
+    const original_amount = body.items.reduce(
       (acc, it) => acc + it.price * it.quantity,
       0
     );
+
+    // 2. Logic Voucher (BARU)
+    let discount_amount = 0;
+    let final_amount = original_amount;
+    let validVoucherCode = null;
+
+    if (body.voucherCode) {
+      const { data: voucher } = await supabaseServer
+        .from("vouchers")
+        .select("*")
+        .eq("code", body.voucherCode.toUpperCase())
+        .eq("is_active", true)
+        .single();
+
+      if (voucher) {
+        // Cek minimal order
+        if (original_amount >= (voucher.min_order_amount || 0)) {
+          if (voucher.type === "percentage") {
+            discount_amount = (original_amount * voucher.value) / 100;
+            // Cek Max Discount (Cap)
+            if (voucher.max_discount && discount_amount > voucher.max_discount) {
+              discount_amount = voucher.max_discount;
+            }
+          } else {
+            // Fixed amount
+            discount_amount = voucher.value;
+          }
+
+          // Pastikan diskon tidak minus atau melebihi total
+          if (discount_amount > original_amount) discount_amount = original_amount;
+          
+          final_amount = original_amount - discount_amount;
+          validVoucherCode = voucher.code;
+        }
+      }
+    }
+
     const orderNumber = generateOrderNumber();
 
+    // 3. Simpan Order dengan rincian harga
     const { data: order, error: orderErr } = await supabaseServer
       .from("orders")
       .insert({
         table_id: table.id,
         order_number: orderNumber,
-        total_amount: total,
+        
+        // --- DATA HARGA ---
+        original_amount: original_amount,
+        discount_amount: discount_amount,
+        total_amount: final_amount, // Harga akhir yang harus dibayar
+        voucher_code: validVoucherCode,
+        
         payment_status: "pending",
         payment_method: "cash",
         midtrans_order_id: null,

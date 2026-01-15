@@ -11,6 +11,9 @@ export type OrderWithTable = {
   created_at: string;
   completed_at: string | null;
   tables?: { table_number: number } | null;
+  original_amount?: number;
+  discount_amount?: number;
+  voucher_code?: string | null;
 };
 
 export type OrderItemWithMenu = {

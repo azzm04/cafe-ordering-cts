@@ -1,10 +1,10 @@
 import { Separator } from "@/components/ui/separator";
 import { FulfillmentTimeline } from "@/components/FulfillmentTimeline";
 import { formatDateTimeID } from "@/lib/nota/format";
-import type { FulfillmentStatus, OrderItemWithMenu } from "@/lib/nota/type"; // Import tipe item
+import type { FulfillmentStatus, OrderItemWithMenu } from "@/lib/nota/type";
 import NotaItemsList from "@/components/nota/NotaItemsList";
 import { formatRupiah } from "@/lib/utils";
-import { Receipt, Calendar, CreditCard, Armchair } from "lucide-react";
+import { Receipt, Calendar, CreditCard, Armchair, Tag } from "lucide-react"; // Tambahkan Tag icon
 
 type NotaSummaryCardProps = {
   orderNumber: string;
@@ -14,8 +14,13 @@ type NotaSummaryCardProps = {
   completedAt: string | null;
   isPaid: boolean;
   effectiveFulfillmentStatus: FulfillmentStatus;
-  items: OrderItemWithMenu[]; // Menggunakan tipe yang spesifik, bukan any
+  items: OrderItemWithMenu[];
   totalAmount: number;
+  
+  // Props Optional (untuk backward compatibility)
+  originalAmount?: number;
+  discountAmount?: number;
+  voucherCode?: string | null;
 };
 
 export default function NotaSummaryCard({
@@ -28,7 +33,17 @@ export default function NotaSummaryCard({
   effectiveFulfillmentStatus,
   items,
   totalAmount,
+  
+  // Ambil props baru
+  originalAmount,
+  discountAmount,
+  voucherCode,
 }: NotaSummaryCardProps) {
+
+  // Logic: Jika originalAmount tidak ada (transaksi lama), gunakan totalAmount sebagai subtotal
+  const subtotal = originalAmount ?? totalAmount;
+  const hasDiscount = (discountAmount || 0) > 0;
+
   return (
     <div className="rounded-3xl border border-border/50 bg-card/40 backdrop-blur-xl shadow-xl shadow-primary/5 overflow-hidden">
       
@@ -87,13 +102,35 @@ export default function NotaSummaryCard({
 
         <Separator className="bg-border/60" />
 
-        {/* Total Amount */}
-        <div className="flex items-center justify-between bg-primary/5 p-4 rounded-xl border border-primary/10">
-          <span className="text-sm font-bold text-foreground uppercase tracking-wide">Total</span>
-          <span className="text-2xl font-black text-primary">
-            {formatRupiah(totalAmount)}
-          </span>
+        {/* --- SECTION HARGA (UPDATED) --- */}
+        <div className="space-y-3">
+          
+          {/* Subtotal */}
+          <div className="flex justify-between text-sm text-muted-foreground">
+             <span>Subtotal</span>
+             <span>{formatRupiah(subtotal)}</span>
+          </div>
+
+          {/* Diskon (Hanya muncul jika ada diskon) */}
+          {hasDiscount && (
+             <div className="flex justify-between text-sm text-emerald-600 font-medium animate-in fade-in slide-in-from-top-1">
+                <span className="flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5" /> 
+                  Diskon {voucherCode ? <span className="font-bold">({voucherCode})</span> : ""}
+                </span>
+                <span>- {formatRupiah(discountAmount!)}</span>
+             </div>
+          )}
+
+          {/* Total Amount Box */}
+          <div className="flex items-center justify-between bg-primary/5 p-4 rounded-xl border border-primary/10 mt-2">
+            <span className="text-sm font-bold text-foreground uppercase tracking-wide">Total</span>
+            <span className="text-2xl font-black text-primary">
+              {formatRupiah(totalAmount)}
+            </span>
+          </div>
         </div>
+
       </div>
     </div>
   );
