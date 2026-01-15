@@ -18,6 +18,7 @@ type MenuItemRow = {
   name: string;
   description: string | null;
   price: number;
+  hpp: number;
   image_url: string | null;
   is_available: boolean;
   is_archived: boolean; 
@@ -26,7 +27,7 @@ type MenuItemRow = {
 };
 
 type MenuItemWithCategory = MenuItemRow & {
-  categories: CategoryRow[]; // sesuai yang kamu pakai
+  categories: CategoryRow[]; 
 };
 
 function jsonNoStore(data: unknown, init?: ResponseInit) {
@@ -43,14 +44,11 @@ function jsonNoStore(data: unknown, init?: ResponseInit) {
 
 export async function GET(req: Request) {
   const guard = await requireAdmin();
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim() ?? "";
   const availableParam = searchParams.get("available"); // "1" | "0" | null
-
-  // ✅ default: sembunyikan yang sudah di-archive
-  // Kalau mau lihat yang archived, panggil: /api/admin/menu-items?archived=1
   const archivedParam = searchParams.get("archived"); // "1" | "0" | null
 
   let query = supabaseAdmin
@@ -62,6 +60,7 @@ export async function GET(req: Request) {
       name,
       description,
       price,
+      hpp, 
       image_url,
       is_available,
       is_archived,
@@ -76,7 +75,6 @@ export async function GET(req: Request) {
     )
     .order("created_at", { ascending: false });
 
-  // default: hanya yang is_archived = false
   if (archivedParam === "1") {
     query = query.eq("is_archived", true);
   } else if (archivedParam === "0") {

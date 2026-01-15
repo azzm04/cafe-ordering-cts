@@ -27,7 +27,7 @@ type ArchivedMenuItem = {
   is_archived: boolean;
   created_at: string;
   variant_group: string | null;
-  categories?: CategoryRow | null; // ✅ object/null (konsisten)
+  categories?: CategoryRow | null; 
 };
 
 type ApiResponse = {
@@ -81,7 +81,6 @@ export default function AdminArchivedMenuPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
-  // ✅ Grouping seperti Kelola Menu
   const groupedItems = useMemo(() => {
     const grouped: Record<string, ArchivedMenuItem[]> = {};
     for (const it of items) {

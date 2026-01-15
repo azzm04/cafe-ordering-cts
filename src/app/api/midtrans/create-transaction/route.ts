@@ -1,8 +1,10 @@
+// src/app/api/midtrans/create-transaction/route.ts
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { snap } from "@/lib/midtrans";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type CreateTransactionBody = {
   tableNumber: number;
@@ -33,6 +35,11 @@ type MidtransTransactionParams = {
   };
 };
 
+type SnapCreateTransactionResponse = {
+  token: string;
+  redirect_url: string;
+};
+
 function generateOrderNumber() {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -44,6 +51,18 @@ function generateOrderNumber() {
   const ss = pad(d.getSeconds());
   const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
   return `CTS-${y}${m}${day}-${hh}${mm}${ss}-${rand}`;
+}
+
+function jsonNoStore(data: unknown, init?: ResponseInit) {
+  return NextResponse.json(data, {
+    ...init,
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+      "CDN-Cache-Control": "no-store",
+      "Vercel-CDN-Cache-Control": "no-store",
+      ...(init?.headers ?? {}),
+    },
+  });
 }
 
 function getErrorMessage(err: unknown) {
@@ -61,52 +80,66 @@ export async function POST(req: Request) {
     const body = (await req.json()) as CreateTransactionBody;
 
     if (!body.tableNumber || !body.items?.length) {
-      return NextResponse.json(
-        { message: "tableNumber & items required" },
-        { status: 400 }
-      );
+      return jsonNoStore({ message: "tableNumber & items required" }, { status: 400 });
     }
 
-    const { data: table, error: tableErr } = await supabaseServer
+    // cek meja
+    const { data: table, error: tableErr } = await supabaseAdmin
       .from("tables")
       .select("id, status, table_number")
       .eq("table_number", body.tableNumber)
       .single();
 
-    if (tableErr || !table)
-      return NextResponse.json({ message: "Table not found" }, { status: 404 });
+    if (tableErr || !table) return jsonNoStore({ message: "Table not found" }, { status: 404 });
+
+    // kalau sudah occupied (misal order belum selesai), blok
     if (table.status !== "available") {
-      return NextResponse.json(
-        { message: "Table not available" },
-        { status: 409 }
-      );
+      return jsonNoStore({ message: "Table not available" }, { status: 409 });
     }
 
-    const total_amount = body.items.reduce(
-      (acc, it) => acc + it.price * it.quantity,
-      0
-    );
-    const order_number = generateOrderNumber();
+    const totalAmount = body.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+    const orderNumber = generateOrderNumber();
 
-    const { data: order, error: orderErr } = await supabaseServer
+    // validate requested quantities per menu
+    try {
+      const menuIds = [...new Set(body.items.map((it) => it.menu_item_id))];
+      const { computeMaxPortionsForMenus } = await import("@/lib/inventory/index");
+      const maxMap = await computeMaxPortionsForMenus(menuIds);
+
+      const problems: Array<{ menu_item_id: string; requested: number; maxAvailable: number | null }> = [];
+      for (const it of body.items) {
+        const max = maxMap.get(it.menu_item_id) ?? null;
+        if (typeof max === "number" && it.quantity > max) {
+          problems.push({ menu_item_id: it.menu_item_id, requested: it.quantity, maxAvailable: max });
+        }
+      }
+
+      if (problems.length > 0) return jsonNoStore({ message: "Stok tidak cukup", items: problems }, { status: 400 });
+    } catch (err) {
+      console.error("midtrans:create-transaction: computeMaxPortionsForMenus failed", err);
+      // proceed without blocking if checker fails
+    }
+
+    // create order
+    const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
         table_id: table.id,
-        order_number,
-        total_amount,
+        order_number: orderNumber,
+        total_amount: totalAmount,
         payment_status: "pending",
-        midtrans_order_id: order_number, // konsisten
+        payment_method: "online",
+        midtrans_order_id: orderNumber,
+        fulfillment_status: "received",
       })
       .select("id, order_number")
-      .single();
+      .single<{ id: string; order_number: string }>();
 
     if (orderErr || !order) {
-      return NextResponse.json(
-        { message: orderErr?.message ?? "Failed create order" },
-        { status: 500 }
-      );
+      return jsonNoStore({ message: orderErr?.message ?? "Failed create order" }, { status: 500 });
     }
 
+    // insert order items
     const orderItemsPayload = body.items.map((it) => ({
       order_id: order.id,
       menu_item_id: it.menu_item_id,
@@ -116,21 +149,24 @@ export async function POST(req: Request) {
       notes: it.notes ?? null,
     }));
 
-    const { error: itemsErr } = await supabaseServer
-      .from("order_items")
-      .insert(orderItemsPayload);
-    if (itemsErr)
-      return NextResponse.json({ message: itemsErr.message }, { status: 500 });
+    const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(orderItemsPayload);
+    if (itemsErr) return jsonNoStore({ message: itemsErr.message }, { status: 500 });
 
-    await supabaseServer
+    // lock meja jadi occupied
+    const { error: lockErr } = await supabaseAdmin
       .from("tables")
       .update({ status: "occupied" })
       .eq("id", table.id);
 
+    if (lockErr) return jsonNoStore({ message: lockErr.message }, { status: 500 });
+
+    // create midtrans transaction
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
     const params: MidtransTransactionParams = {
       transaction_details: {
         order_id: order.order_number,
-        gross_amount: total_amount,
+        gross_amount: totalAmount,
       },
       item_details: body.items.map(
         (it): MidtransItemDetail => ({
@@ -141,31 +177,35 @@ export async function POST(req: Request) {
         })
       ),
       callbacks: {
-        finish: `${process.env.NEXT_PUBLIC_APP_URL}/nota`,
+        finish: `${appUrl}/nota/${order.order_number}`,
       },
     };
 
-    const snapResp = (await snap.createTransaction(params)) as unknown;
-    const token =
-      typeof snapResp === "object" && snapResp !== null && "token" in snapResp
-        ? (snapResp as Record<string, unknown>).token
-        : null;
+    const snapResp = (await snap.createTransaction(params)) as SnapCreateTransactionResponse;
 
-    if (typeof token !== "string") {
-      return NextResponse.json(
-        { message: "Failed to get snap token from Midtrans" },
-        { status: 500 }
-      );
+    if (!snapResp?.token || !snapResp?.redirect_url) {
+      return jsonNoStore({ message: "Failed to get token/redirect_url from Midtrans" }, { status: 500 });
     }
 
-    return NextResponse.json({
+    // simpan token + redirect_url ke DB
+    const { error: saveErr } = await supabaseAdmin
+      .from("orders")
+      .update({
+        midtrans_snap_token: snapResp.token,
+        midtrans_redirect_url: snapResp.redirect_url,
+      })
+      .eq("id", order.id);
+
+    if (saveErr) {
+      return jsonNoStore({ message: saveErr.message }, { status: 500 });
+    }
+
+    return jsonNoStore({
       orderNumber: order.order_number,
-      snapToken: token,
+      snapToken: snapResp.token,
+      redirectUrl: snapResp.redirect_url,
     });
   } catch (e: unknown) {
-    return NextResponse.json(
-      { message: "Server crash", details: getErrorMessage(e) },
-      { status: 500 }
-    );
+    return jsonNoStore({ message: "Server crash", details: getErrorMessage(e) }, { status: 500 });
   }
 }

@@ -24,6 +24,5 @@ export default function TableGatePage({ searchParams }: Props) {
     return redirect("/menu?error=invalid_signature");
   }
 
-  // ✅ Signature valid → masuk menu
   redirect(`/menu?meja=${meja}`);
 }

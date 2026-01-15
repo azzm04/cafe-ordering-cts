@@ -1,3 +1,4 @@
+// src/app/api/admin/menu-items/create/route.ts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ type CreateBody = {
   categoryId: string;
   name: string;
   price: number;
+  hpp?: number; 
   description?: string;
   imageUrl?: string;
   isAvailable: boolean;
@@ -34,6 +36,7 @@ function isCreateBody(x: unknown): x is CreateBody {
     typeof r.categoryId === "string" &&
     typeof r.name === "string" &&
     typeof r.price === "number" &&
+    (r.hpp === undefined || typeof r.hpp === "number") && 
     typeof r.isAvailable === "boolean" &&
     (r.description === undefined || typeof r.description === "string") &&
     (r.imageUrl === undefined || typeof r.imageUrl === "string") &&
@@ -45,7 +48,7 @@ function isCreateBody(x: unknown): x is CreateBody {
 
 export async function POST(req: Request) {
   const guard = await requireAdmin();
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   let raw: unknown;
   try {
@@ -72,6 +75,7 @@ export async function POST(req: Request) {
     category_id: string;
     name: string;
     price: number;
+    hpp: number; 
     description: string | null;
     image_url: string | null;
     is_available: boolean;
@@ -80,6 +84,7 @@ export async function POST(req: Request) {
     category_id: categoryId,
     name,
     price,
+    hpp: raw.hpp ? Number(raw.hpp) : 0, 
     description: raw.description?.trim() ? raw.description.trim() : null,
     image_url: raw.imageUrl?.trim() ? raw.imageUrl.trim() : null,
     is_available: Boolean(raw.isAvailable),

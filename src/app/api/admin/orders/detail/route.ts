@@ -19,7 +19,7 @@ function jsonNoStore(data: unknown, init?: ResponseInit) {
 
 export async function GET(req: Request) {
   const guard = await requireAdmin();
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const { searchParams } = new URL(req.url);
   const orderNumber = (searchParams.get("orderNumber") ?? "").trim();

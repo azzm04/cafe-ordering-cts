@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+type AdminRole = "kasir" | "owner";
+
 function getErrorMessage(err: unknown) {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
@@ -14,6 +16,24 @@ function getErrorMessage(err: unknown) {
   } catch {
     return "Unknown error";
   }
+}
+
+function safeMessage(json: unknown, fallback: string) {
+  if (typeof json === "object" && json !== null && "message" in json) {
+    return String((json as Record<string, unknown>).message);
+  }
+  return fallback;
+}
+
+function isObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+function readRole(v: unknown): AdminRole | null {
+  if (!isObject(v)) return null;
+  const r = v.role;
+  if (r === "owner" || r === "kasir") return r;
+  return null;
 }
 
 export default function AdminLoginPage() {
@@ -25,23 +45,31 @@ export default function AdminLoginPage() {
   const onSubmit = async () => {
     setErr(null);
     setLoading(true);
+
     try {
+      // 1) login -> set cookie
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin }),
       });
-      const json: unknown = await res.json();
 
-      if (!res.ok) {
-        const msg =
-          typeof json === "object" && json !== null && "message" in json
-            ? String((json as Record<string, unknown>).message)
-            : "Login gagal";
-        throw new Error(msg);
+      const json: unknown = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(safeMessage(json, "Login gagal"));
+
+      // 2) cek role -> redirect sesuai role
+      const meRes = await fetch(`/api/admin/me?t=${Date.now()}`, { cache: "no-store" });
+      const meJson: unknown = await meRes.json().catch(() => null);
+      const role = readRole(meJson);
+
+      if (role === "owner") {
+        router.replace("/admin/owner");
+      } else if (role === "kasir") {
+        router.replace("/admin/kasir");
+      } else {
+        // fallback
+        router.replace("/admin");
       }
-
-      router.replace("/admin");
     } catch (e: unknown) {
       setErr(getErrorMessage(e));
     } finally {
@@ -53,8 +81,8 @@ export default function AdminLoginPage() {
     <main className="mx-auto min-h-screen max-w-md p-6 flex items-center">
       <Card className="w-full p-5 space-y-3">
         <div>
-          <h1 className="text-xl font-semibold">Kasir Login</h1>
-          <p className="text-sm opacity-70">Masukkan PIN untuk akses dashboard.</p>
+          <h1 className="text-xl font-semibold">Admin Login</h1>
+          <p className="text-sm opacity-70">Masukkan PIN untuk akses dashboard</p>
         </div>
 
         <Input

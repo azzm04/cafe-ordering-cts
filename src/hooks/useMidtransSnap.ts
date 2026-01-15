@@ -2,18 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-declare global {
-  interface Window {
-    snap: {
-      pay: (snapToken: string, options: {
-        onSuccess?: () => void;
-        onPending?: () => void;
-        onError?: () => void;
-        onClose?: () => void;
-      }) => void;
-    };
-  }
-}
 
 export function useMidtransSnap() {
   const [ready, setReady] = useState(() => typeof window !== "undefined" && !!window.snap);
@@ -37,7 +25,6 @@ export function useMidtransSnap() {
       process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY!
     );
 
-    // ✅ setState hanya dari callback eksternal
     script.onload = () => setReady(true);
     script.onerror = () => setReady(false);
 

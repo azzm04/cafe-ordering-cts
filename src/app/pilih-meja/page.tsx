@@ -1,91 +1,134 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "sonner"
-import type { Table } from "@/types"
-import { useCartStore } from "@/store/cartStore"
-import { TableSelector } from "@/components/TableSelector"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState, useCallback, memo } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import type { Table } from "@/types";
+import { useCartStore } from "@/store/cartStore";
+import { TableSelector } from "@/components/TableSelector";
+import { Button } from "@/components/ui/button";
+import { RefreshCw, Sparkles, ChevronRight } from "lucide-react";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
+
+const HeaderSection = memo(() => (
+  <div className="relative space-y-4 sm:space-y-6 text-center sm:text-left">
+    <div className="space-y-3">
+      <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight">
+        <span className="bg-gradient-to-r from-foreground to-primary bg-clip-text text-transparent">
+          Pilih Nomor Meja
+        </span>
+      </h1>
+      <div className="flex items-center justify-center sm:justify-start gap-2 text-base sm:text-lg text-muted-foreground">
+        <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+        <p>Silakan pilih meja yang tersedia</p>
+      </div>
+    </div>
+  </div>
+));
+HeaderSection.displayName = "HeaderSection";
 
 export default function PilihMejaPage() {
-  const router = useRouter()
-  const setTableNumber = useCartStore((s) => s.setTableNumber)
+  const router = useRouter();
+  const setTableNumber = useCartStore((s) => s.setTableNumber);
 
-  const [tables, setTables] = useState<Table[]>([])
-  const [loading, setLoading] = useState(true)
+  const [tables, setTables] = useState<Table[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const loadTables = async () => {
-    setLoading(true)
+  const loadTables = useCallback(async () => {
+    setLoading(true);
     try {
       const res = await fetch(`/api/tables?t=${Date.now()}`, {
         cache: "no-store",
-      })
+      });
 
-      const json: unknown = await res.json()
+      const json = await res.json();
 
       if (!res.ok) {
-        const msg =
-          typeof json === "object" && json !== null && "message" in json
-            ? String((json as Record<string, unknown>).message)
-            : "Gagal ambil data meja"
-        throw new Error(msg)
+        throw new Error(json?.message || "Gagal ambil data meja");
       }
 
-      const tablesData =
-        typeof json === "object" && json !== null && "tables" in json ? (json as Record<string, unknown>).tables : []
-
-      setTables(Array.isArray(tablesData) ? (tablesData as Table[]) : [])
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Error"
-      toast.error(message)
+      setTables(Array.isArray(json.tables) ? json.tables : []);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Error";
+      toast.error(message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    void loadTables()
-  }, [])
+    void loadTables();
+  }, [loadTables]);
+
+  const availableCount = tables.filter((t) => t.status === "available").length;
 
   return (
-    <main className="min-h-screen bg-background p-4 sm:p-6 space-y-6 sm:space-y-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="space-y-2">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground text-balance">Pilih Nomor Meja</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Memilih meja untuk memulai pengalaman berbelanja Anda
-          </p>
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
+
+      <div className="relative z-10 container max-w-4xl mx-auto px-4 py-8 sm:py-12 space-y-8 sm:space-y-12">
+        {/* Header */}
+        <div className="pt-4">
+          <HeaderSection />
+        </div>
+
+        {/* Action Bar (Status & Refresh) */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-card/50 backdrop-blur-md border border-border/50 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <div className="text-center sm:text-left">
+              <p className="text-sm font-semibold text-foreground">
+                {loading ? "Sinkronisasi data..." : `${tables.length} Meja Terdata`}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {loading ? "..." : `${availableCount} meja kosong`}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={loadTables}
+            disabled={loading}
+            className="w-full sm:w-auto rounded-xl border-primary/20 hover:bg-primary/5 active:scale-95 transition-all"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            {loading ? "Memuat..." : "Refresh Status"}
+          </Button>
+        </div>
+
+        {/* Content Area */}
+        <div className="min-h-75">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+              <div className="relative w-16 h-16">
+                <div className="absolute inset-0 rounded-full border-4 border-primary/20" />
+                <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+              </div>
+              <p className="text-sm text-muted-foreground animate-pulse">
+                Sedang mengecek ketersediaan meja...
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <TableSelector
+                tables={tables}
+                onSelect={(n) => {
+                  setTableNumber(n);
+                  router.push("/menu");
+                }}
+              />
+
+              <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground pt-4">
+                <ChevronRight className="w-4 h-4" />
+                <span>Pilih meja berwarna hijau untuk melanjutkan</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      <div className="max-w-4xl mx-auto flex justify-end">
-        <Button
-          variant="outline"
-          onClick={loadTables}
-          disabled={loading}
-          className="font-medium bg-card hover:bg-muted transition-colors"
-        >
-          {loading ? "Memuat..." : "🔄 Refresh"}
-        </Button>
-      </div>
-
-      <div className="max-w-4xl mx-auto">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 sm:py-16">
-            <div className="inline-flex h-10 w-10 animate-spin rounded-full border-4 border-muted border-t-primary mb-4"></div>
-            <p className="text-sm sm:text-base text-muted-foreground">Memuat meja...</p>
-          </div>
-        ) : (
-          <TableSelector
-            tables={tables}
-            onSelect={(n) => {
-              setTableNumber(n)
-              router.push("/menu")
-            }}
-          />
-        )}
-      </div>
     </main>
-  )
+  );
 }

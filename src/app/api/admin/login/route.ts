@@ -1,34 +1,37 @@
-export const runtime = "nodejs";
-
+// src/app/api/admin/login/route.ts
 import { NextResponse } from "next/server";
-import { getAdminCookieName, getExpectedCookieValue, hashPin } from "@/lib/admin-auth";
+import { cookies } from "next/headers";
+import { getAdminCookieName, getAdminByPin, signAdminSession } from "@/lib/admin-auth";
 
-type Body = { pin: string };
+type LoginBody = { pin?: unknown };
 
 export async function POST(req: Request) {
-  const body = (await req.json()) as Body;
-  const pin = (body?.pin ?? "").trim();
+  const body: LoginBody = await req.json().catch(() => ({}));
+  const pin = typeof body.pin === "string" ? body.pin : "";
 
-  if (!process.env.ADMIN_PIN) {
-    return NextResponse.json({ message: "ADMIN_PIN not set" }, { status: 500 });
+  // Cek PIN ke Database
+  const adminUser = await getAdminByPin(pin);
+  
+  if (!adminUser) {
+    return NextResponse.json({ message: "PIN salah atau akun tidak aktif" }, { status: 401 });
   }
 
-  const expected = await getExpectedCookieValue();
-  const hashed = await hashPin(pin);
+  // Buat Session dengan Data Lengkap (ID & Username)
+  const token = await signAdminSession({
+    id: adminUser.id,
+    username: adminUser.username,
+    role: adminUser.role,
+  });
 
-  if (hashed !== expected) {
-    return NextResponse.json({ message: "PIN salah" }, { status: 401 });
-  }
-
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set({
-    name: getAdminCookieName(),
-    value: expected,
+  // Set Cookie
+  const cookieStore = await cookies();
+  cookieStore.set(getAdminCookieName(), token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false, // true di production https
+    secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 12,
+    maxAge: 60 * 60 * 24 * 7, 
   });
-  return res;
+
+  return NextResponse.json({ ok: true, role: adminUser.role });
 }

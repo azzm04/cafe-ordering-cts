@@ -3,7 +3,6 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-// kalau kamu punya guard admin, panggil di sini (mis. assertAdmin(req))
 
 type Body = {
   orderId: string;

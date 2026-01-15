@@ -21,7 +21,7 @@ function jsonNoStore(data: unknown, init?: ResponseInit) {
 
 export async function POST(req: Request) {
   const guard = await requireAdmin();
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   let body: Body;
   try {
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   const id = String(body.id ?? "").trim();
   if (!id) return jsonNoStore({ message: "id wajib diisi" }, { status: 400 });
 
-  // ✅ Soft delete / archive: selalu update, tidak pernah delete
+  // Soft delete / archive
   const { data, error } = await supabaseAdmin
     .from("menu_items")
     .update({

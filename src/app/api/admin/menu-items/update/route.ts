@@ -1,3 +1,4 @@
+// src/app/api/admin/menu-items/update/route.ts
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -11,9 +12,10 @@ type Body = {
   name?: string;
   description?: string | null;
   price?: number;
+  hpp?: number; 
   imageUrl?: string | null;
   isAvailable?: boolean;
-  variantGroup?: string | null; // <-- penting
+  variantGroup?: string | null;
 };
 
 type UpdatePayload = {
@@ -21,6 +23,7 @@ type UpdatePayload = {
   name?: string;
   description?: string | null;
   price?: number;
+  hpp?: number; 
   image_url?: string | null;
   is_available?: boolean;
   variant_group?: string | null;
@@ -28,7 +31,7 @@ type UpdatePayload = {
 
 export async function POST(req: Request) {
   const guard = await requireAdmin();
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   let body: Body;
   try {
@@ -42,7 +45,6 @@ export async function POST(req: Request) {
 
   const patch: UpdatePayload = {};
 
-  // ✅ hanya update kalau field-nya benar-benar dikirim
   if (typeof body.categoryId === "string") {
     const v = body.categoryId.trim();
     if (!v) return NextResponse.json({ message: "categoryId required" }, { status: 400 });
@@ -73,14 +75,21 @@ export async function POST(req: Request) {
     patch.price = price;
   }
 
+  if (body.hpp !== undefined) {
+    const hpp = Number(body.hpp);
+    if (!Number.isFinite(hpp) || hpp < 0) {
+      return NextResponse.json({ message: "hpp invalid" }, { status: 400 });
+    }
+    patch.hpp = hpp;
+  }
+
   if (body.isAvailable !== undefined) {
     patch.is_available = Boolean(body.isAvailable);
   }
 
-  // ✅ INI kuncinya: variant_group cuma diubah kalau dikirim
   if (body.variantGroup !== undefined) {
     const v = typeof body.variantGroup === "string" ? body.variantGroup.trim() : "";
-    patch.variant_group = v ? v : null; // kirim "" => null, kirim string => set value
+    patch.variant_group = v ? v : null; 
   }
 
   if (Object.keys(patch).length === 0) {

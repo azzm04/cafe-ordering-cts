@@ -61,6 +61,26 @@ export async function POST(req: Request) {
         { status: 409 }
       );
 
+    // validate requested quantities per menu
+    try {
+      const menuIds = [...new Set(body.items.map((it) => it.menu_item_id))];
+      const { computeMaxPortionsForMenus } = await import("@/lib/inventory/index");
+      const maxMap = await computeMaxPortionsForMenus(menuIds);
+
+      const problems: Array<{ menu_item_id: string; requested: number; maxAvailable: number | null }> = [];
+      for (const it of body.items) {
+        const max = maxMap.get(it.menu_item_id) ?? null;
+        if (typeof max === "number" && it.quantity > max) {
+          problems.push({ menu_item_id: it.menu_item_id, requested: it.quantity, maxAvailable: max });
+        }
+      }
+
+      if (problems.length > 0) return NextResponse.json({ message: "Stok tidak cukup", items: problems }, { status: 400 });
+    } catch (err) {
+      console.error("cash order: computeMaxPortionsForMenus failed", err);
+      // proceed without strict validation if the check fails
+    }
+
     const total = body.items.reduce(
       (acc, it) => acc + it.price * it.quantity,
       0

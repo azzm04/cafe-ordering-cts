@@ -4,13 +4,13 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth-server";
+import { requireOwner } from "@/lib/admin-auth-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type PaymentStatus = "pending" | "paid" | "failed" | "expired";
 type OrderStatus = "received" | "served" | "completed";
 
 type TableEmbed = { table_number: number };
-
 
 type Row = {
   id: string;
@@ -21,7 +21,7 @@ type Row = {
   order_status: OrderStatus;
   created_at: string;
   completed_at: string | null;
-  tables: TableEmbed| TableEmbed[] | null;
+  tables: TableEmbed | TableEmbed[] | null;
 };
 
 function pickTable(embed: Row["tables"]): TableEmbed | null {
@@ -44,20 +44,27 @@ function jsonNoStore(data: unknown, init?: ResponseInit) {
 
 export async function GET(req: Request) {
   const guard = await requireAdmin();
-  if (guard) return guard;
+  if (guard instanceof NextResponse) return guard;
 
   const { searchParams } = new URL(req.url);
 
   const q = (searchParams.get("q") ?? "").trim();
   const tableStr = (searchParams.get("table") ?? "").trim();
-  const paymentStatus = (searchParams.get("payment_status") ?? "").trim() as PaymentStatus | "";
-  const orderStatus = (searchParams.get("order_status") ?? "").trim() as OrderStatus | "";
+  const paymentStatus = (searchParams.get("payment_status") ?? "").trim() as
+    | PaymentStatus
+    | "";
+  const orderStatus = (searchParams.get("order_status") ?? "").trim() as
+    | OrderStatus
+    | "";
   const paymentMethod = (searchParams.get("payment_method") ?? "").trim();
   const from = (searchParams.get("from") ?? "").trim(); // YYYY-MM-DD
   const to = (searchParams.get("to") ?? "").trim(); // YYYY-MM-DD
 
   const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
-  const pageSize = Math.min(50, Math.max(5, Number(searchParams.get("pageSize") ?? "10")));
+  const pageSize = Math.min(
+    50,
+    Math.max(5, Number(searchParams.get("pageSize") ?? "10"))
+  );
   const fromIndex = (page - 1) * pageSize;
   const toIndex = fromIndex + pageSize - 1;
 
@@ -125,4 +132,35 @@ export async function GET(req: Request) {
     total,
     totalPages,
   });
+}
+
+export async function DELETE(req: Request) {
+  // 1. Proteksi: Hanya Owner yang boleh
+  const guard = await requireOwner();
+  if (guard instanceof NextResponse) return guard;
+
+  try {
+    const { id } = await req.json();
+
+    if (!id) {
+      return NextResponse.json({ message: "ID pesanan diperlukan" }, { status: 400 });
+    }
+
+    // 2. Hapus data (Supabase biasanya otomatis cascade delete item, tapi cek setting foreign key db kamu)
+    const { error } = await supabaseAdmin
+      .from("orders")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ message: "Pesanan berhasil dihapus permanen" });
+  } catch (error) {
+    return NextResponse.json(
+      { message: "Terjadi kesalahan server" },
+      { status: 500 }
+    );
+  }
 }
