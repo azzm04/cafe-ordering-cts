@@ -5,9 +5,12 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { AdminRole } from "@/lib/admin-auth";
-import DashboardOperationalPanel, { type ActiveOrder } from "@/components/admin/dashboard/DashboardOperationalPanel";
+import DashboardOperationalPanel, {
+  type ActiveOrder,
+} from "@/components/admin/dashboard/DashboardOperationalPanel";
 import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
 import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
+import { logout } from "@/lib/logout";
 
 type TableRow = {
   id: string;
@@ -27,7 +30,11 @@ function safeMessage(json: unknown, fallback: string) {
   return fallback;
 }
 
-export default function AdminDashboardClient({ role }: { role: AdminRole | null }) {
+export default function AdminDashboardClient({
+  role,
+}: {
+  role: AdminRole | null;
+}) {
   const [tables, setTables] = useState<TableRow[]>([]);
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,9 +42,11 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
   const fetchOverview = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/overview?t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`/api/admin/overview?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       const json = (await res.json()) as unknown;
-      
+
       if (!res.ok) throw new Error(safeMessage(json, "Gagal load dashboard"));
 
       const data = json as OverviewResponse;
@@ -56,7 +65,7 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
 
   useAutoCancelExpiredOrders({
     enabled: true,
-    intervalMs: 15 * 60 * 1000, 
+    intervalMs: 15 * 60 * 1000,
     onSuccess: (result) => {
       if (result.cancelled > 0) {
         toast.warning(
@@ -64,7 +73,7 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
           {
             description: `Order: ${result.orders.join(", ")}`,
             duration: 5000,
-          }
+          },
         );
         void fetchOverview();
       }
@@ -80,48 +89,63 @@ export default function AdminDashboardClient({ role }: { role: AdminRole | null 
         {/* Header Kasir */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Dashboard Kasir</h1>
-            <p className="mt-2 text-sm text-muted-foreground">Kelola meja, pantau order, dan proses pembayaran</p>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Dashboard Kasir
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Kelola meja, pantau order, dan proses pembayaran
+            </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             {role === "owner" && (
               <Link href="/admin/owner" className="flex-1 sm:flex-none">
-                <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto bg-transparent"
+                >
                   Ke Dashboard Owner
                 </Button>
               </Link>
             )}
 
-            <Button variant="secondary" onClick={fetchOverview} disabled={loading} className="flex-1 sm:flex-none">
+            <Button
+              variant="secondary"
+              onClick={fetchOverview}
+              disabled={loading}
+              className="flex-1 sm:flex-none"
+            >
               {loading ? "Loading..." : "Refresh"}
             </Button>
 
             <Link href="/admin/history" className="flex-1 sm:flex-none">
-              <Button variant="outline" className="w-full sm:w-auto bg-transparent">
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto bg-transparent"
+              >
                 History Pesanan
               </Button>
             </Link>
 
-            <Button
-              variant="outline"
-              onClick={() => {
-                // Logout logic: hapus cookie dan redirect
-                document.cookie = "cts_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-                location.href = "/admin/login";
-              }}
-              className="flex-1 sm:flex-none"
-            >
+            <Button variant="outline" onClick={logout}>
               Logout
             </Button>
           </div>
         </div>
 
         <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg border border-border/50">
-          <DashboardAutoRefresh intervalMs={5000} enabled={true} onRefresh={fetchOverview} />
+          <DashboardAutoRefresh
+            intervalMs={5000}
+            enabled={true}
+            onRefresh={fetchOverview}
+          />
         </div>
 
-        <DashboardOperationalPanel tables={tables} orders={orders} onRefresh={fetchOverview} />
+        <DashboardOperationalPanel
+          tables={tables}
+          orders={orders}
+          onRefresh={fetchOverview}
+        />
       </div>
     </main>
   );

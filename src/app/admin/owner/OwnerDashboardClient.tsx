@@ -11,7 +11,8 @@ import DashboardOperationalPanel, {
 } from "@/components/admin/dashboard/DashboardOperationalPanel";
 import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
 import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
-import VoucherManager from "@/components/admin/dashboard/VoucherManager";
+import { useSessionGuard } from "@/hooks/useSessionGuard";
+import { logout } from "@/lib/logout";
 
 type TableRow = {
   id: string;
@@ -32,6 +33,7 @@ function safeMessage(json: unknown, fallback: string) {
 }
 
 export default function OwnerDashboardClient() {
+  useSessionGuard();
   const [tables, setTables] = useState<TableRow[]>([]);
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,7 @@ export default function OwnerDashboardClient() {
     onSuccess: (result) => {
       if (result.cancelled > 0) {
         toast.warning(
-          `${result.cancelled} order cash expired dibatalkan otomatis`
+          `${result.cancelled} order cash expired dibatalkan otomatis`,
         );
         void fetchOverview();
       }
@@ -82,9 +84,6 @@ export default function OwnerDashboardClient() {
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
               Dashboard Owner
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Pantau operasional & akses cepat ke fitur manajemen
-            </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -138,15 +137,7 @@ export default function OwnerDashboardClient() {
               </Button>
             </Link>
 
-            <Button
-              variant="outline"
-              onClick={() => {
-                document.cookie =
-                  "cts_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-                location.href = "/admin/login";
-              }}
-              className="flex-1 sm:flex-none"
-            >
+            <Button variant="outline" onClick={logout}>
               Logout
             </Button>
           </div>
