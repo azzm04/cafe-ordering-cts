@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, startOfMonth, subDays } from "date-fns"; 
-
+import { HourlyChart } from "@/components/admin/hourly-chart";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -39,6 +39,7 @@ type ApiErrorResponse = {
   message: string;
 };
 
+
 // --- HELPER FUNCTIONS ---
 function formatIDR(n: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -50,54 +51,220 @@ function formatIDR(n: number) {
 }
 
 // --- KOMPONEN GRAFIK (Hourly Chart - Gradient Style) ---
-function HourlyChart({ data }: { data: number[] }) {
-  const maxVal = Math.max(...data, 1);
-  const avgVal = data.reduce((a, b) => a + b, 0) / (data.length || 1);
-  
-  return (
-    <div className="w-full space-y-3">
-      {/* Chart Grid */}
-      <div className="w-full h-56 flex items-end gap-1.5 px-1 py-2 border border-border/50 rounded-lg bg-muted/10">
-        {data.map((val, hour) => {
-          const heightPercent = (val / maxVal) * 100;
-          const isAboveAvg = val > avgVal;
+// export function HourlyChart({ data }: HourlyChartProps) {
+//   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-          return (
-            <div key={hour} className="flex-1 flex flex-col justify-end group relative">
-              {/* Tooltip */}
-              <div className="opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-2 text-[10px] bg-foreground text-background px-2.5 py-1.5 rounded-md pointer-events-none whitespace-nowrap z-10 shadow-lg transition-opacity font-medium">
-                {hour}:00 • {val} Trx
-              </div>
+//   const chartData = useMemo(() => {
+//     const maxVal = Math.max(...data, 1);
+//     const total = data.reduce((a, b) => a + b, 0);
+//     const isEmpty = total === 0;
 
-              {/* Bar with Gradient Effect */}
-              <div
-                className={`w-full rounded-t-sm transition-all duration-500 ${
-                  val > 0
-                    ? isAboveAvg
-                      ? "bg-gradient-to-t from-primary to-primary/60 hover:from-primary/90 hover:to-primary/70 shadow-[0_0_10px_rgba(var(--primary),0.3)]"
-                      : "bg-gradient-to-t from-primary/50 to-primary/30 hover:from-primary/60 hover:to-primary/40"
-                    : "bg-muted/30"
-                }`}
-                style={{ height: `${heightPercent}%`, minHeight: val > 0 ? "6px" : "2px" }}
-              />
+//     const width = 500;
+//     const height = 160;
+//     const padding = { top: 20, right: 20, bottom: 30, left: 20 };
+//     const chartWidth = width - padding.left - padding.right;
+//     const chartHeight = height - padding.top - padding.bottom;
 
-              {/* Hour Label (Setiap 3 jam) */}
-              <span className="text-[9px] text-muted-foreground text-center mt-2 font-medium hidden sm:block">
-                {hour % 3 === 0 ? `${hour}` : ""}
-              </span>
-            </div>
-          )
-        })}
-      </div>
+//     const points = data.map((val, idx) => {
+//       const x = padding.left + (idx / (data.length - 1)) * chartWidth;
+//       const y = padding.top + chartHeight - (val / maxVal) * chartHeight;
+//       return { x, y, val, hour: idx };
+//     });
 
-      {/* Legend */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
-        <span>Rata-rata: {avgVal.toFixed(1)} trx/jam</span>
-        <span>Puncak: {maxVal} trx</span>
-      </div>
-    </div>
-  );
-}
+//     // Create smooth bezier curve path
+//     let pathD = "";
+//     if (points.length > 0 && !isEmpty) {
+//       pathD = `M ${points[0].x} ${points[0].y}`;
+
+//       for (let i = 0; i < points.length - 1; i++) {
+//         const p0 = points[Math.max(0, i - 1)];
+//         const p1 = points[i];
+//         const p2 = points[i + 1];
+//         const p3 = points[Math.min(points.length - 1, i + 2)];
+
+//         const tension = 0.35;
+//         const cp1x = p1.x + (p2.x - p0.x) * tension;
+//         const cp1y = p1.y + (p2.y - p0.y) * tension;
+//         const cp2x = p2.x - (p3.x - p1.x) * tension;
+//         const cp2y = p2.y - (p3.y - p1.y) * tension;
+
+//         pathD += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+//       }
+//     }
+
+//     // Area path (closed)
+//     const areaPath = pathD
+//       ? `${pathD} L ${points[points.length - 1].x} ${padding.top + chartHeight} L ${points[0].x} ${padding.top + chartHeight} Z`
+//       : "";
+
+//     return { maxVal, total, isEmpty, points, pathD, areaPath, width, height, padding, chartWidth, chartHeight };
+//   }, [data]);
+
+//   const { maxVal, total, isEmpty, points, pathD, areaPath, width, height, padding, chartHeight } = chartData;
+//   const baselineY = padding.top + chartHeight;
+
+//   // Hours to display on X axis
+//   const xLabels = [0, 3, 6, 9, 12, 15, 18, 21, 23];
+
+//   // Empty State
+//   if (isEmpty) {
+//     return (
+//       <div className="w-full">
+//         <div className="relative w-full h-44 flex items-center justify-center bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+//           <div className="text-center">
+//             <p className="text-3xl font-bold text-slate-300">0</p>
+//             <p className="text-sm text-slate-400 mt-1">Belum ada transaksi hari ini</p>
+//           </div>
+//         </div>
+//         <div className="flex justify-between text-xs text-slate-400 mt-3 px-2">
+//           {xLabels.map((h) => (
+//             <span key={h}>{String(h).padStart(2, "0")}:00</span>
+//           ))}
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="w-full">
+//       {/* Chart Container */}
+//       <div className="relative w-full">
+//         <svg
+//           viewBox={`0 0 ${width} ${height}`}
+//           className="w-full h-44"
+//           preserveAspectRatio="xMidYMid meet"
+//           onMouseLeave={() => setHoveredIndex(null)}
+//         >
+//           <defs>
+//             {/* Gradient for area fill */}
+//             <linearGradient id="areaGradientBlue" x1="0" y1="0" x2="0" y2="1">
+//               <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.3} />
+//               <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.02} />
+//             </linearGradient>
+
+//             {/* Gradient for line */}
+//             <linearGradient id="lineGradientBlue" x1="0" y1="0" x2="1" y2="0">
+//               <stop offset="0%" stopColor="#3b82f6" />
+//               <stop offset="100%" stopColor="#60a5fa" />
+//             </linearGradient>
+//           </defs>
+
+//           {/* Horizontal grid lines */}
+//           {[0, 0.25, 0.5, 0.75, 1].map((ratio, i) => (
+//             <line
+//               key={i}
+//               x1={padding.left}
+//               y1={padding.top + chartHeight * (1 - ratio)}
+//               x2={width - padding.right}
+//               y2={padding.top + chartHeight * (1 - ratio)}
+//               stroke="#e2e8f0"
+//               strokeWidth={1}
+//               strokeDasharray={ratio === 0 ? "0" : "4 4"}
+//             />
+//           ))}
+
+//           {/* Area fill */}
+//           <path d={areaPath} fill="url(#areaGradientBlue)" />
+
+//           {/* Main line */}
+//           <path
+//             d={pathD}
+//             fill="none"
+//             stroke="url(#lineGradientBlue)"
+//             strokeWidth={2.5}
+//             strokeLinecap="round"
+//             strokeLinejoin="round"
+//           />
+
+//           {/* Interactive hover areas */}
+//           {points.map((point, idx) => (
+//             <rect
+//               key={idx}
+//               x={point.x - 10}
+//               y={padding.top}
+//               width={20}
+//               height={chartHeight}
+//               fill="transparent"
+//               onMouseEnter={() => setHoveredIndex(idx)}
+//               className="cursor-pointer"
+//             />
+//           ))}
+
+//           {/* Hover effects */}
+//           {hoveredIndex !== null && points[hoveredIndex] && (
+//             <>
+//               {/* Vertical line */}
+//               <line
+//                 x1={points[hoveredIndex].x}
+//                 y1={padding.top}
+//                 x2={points[hoveredIndex].x}
+//                 y2={baselineY}
+//                 stroke="#3b82f6"
+//                 strokeWidth={1}
+//                 strokeDasharray="4 4"
+//                 strokeOpacity={0.5}
+//               />
+
+//               {/* Outer glow circle */}
+//               <circle
+//                 cx={points[hoveredIndex].x}
+//                 cy={points[hoveredIndex].y}
+//                 r={12}
+//                 fill="#3b82f6"
+//                 fillOpacity={0.15}
+//               />
+
+//               {/* Main dot */}
+//               <circle
+//                 cx={points[hoveredIndex].x}
+//                 cy={points[hoveredIndex].y}
+//                 r={6}
+//                 fill="#ffffff"
+//                 stroke="#3b82f6"
+//                 strokeWidth={2.5}
+//               />
+//             </>
+//           )}
+
+//           {/* X-axis labels */}
+//           {xLabels.map((hour) => {
+//             const x = padding.left + (hour / 23) * (width - padding.left - padding.right);
+//             return (
+//               <text
+//                 key={hour}
+//                 x={x}
+//                 y={height - 8}
+//                 textAnchor="middle"
+//                 className="fill-slate-400 text-[11px]"
+//               >
+//                 {String(hour).padStart(2, "0")}:00
+//               </text>
+//             );
+//           })}
+//         </svg>
+
+//         {/* Tooltip */}
+//         {hoveredIndex !== null && points[hoveredIndex] && (
+//           <div
+//             className="absolute transform -translate-x-1/2 bg-white border border-slate-200 text-slate-700 text-xs px-3 py-2 rounded-lg shadow-lg pointer-events-none whitespace-nowrap z-10"
+//             style={{
+//               left: `${(points[hoveredIndex].x / width) * 100}%`,
+//               top: `${((points[hoveredIndex].y - 15) / height) * 100}%`,
+//               transform: "translate(-50%, -100%)",
+//             }}
+//           >
+//             <p className="text-[10px] text-slate-400 mb-0.5">
+//               Jam {String(hoveredIndex).padStart(2, "0")}:00
+//             </p>
+//             <p className="text-sm font-semibold text-slate-800">
+//               {points[hoveredIndex].val} Transaksi
+//             </p>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }
 
 // --- KOMPONEN UTAMA ---
 export default function AdminLaporanClient() {
