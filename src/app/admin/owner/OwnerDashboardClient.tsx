@@ -125,7 +125,7 @@ export default function OwnerDashboardClient() {
 
             <div className="flex items-center gap-2">
               <AlertsDropdown />
-              <StockAlertBadge />
+              {/* <StockAlertBadge /> */}
             </div>
 
             <Link href="/admin/history" className="flex-1 sm:flex-none">

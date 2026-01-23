@@ -100,12 +100,12 @@ export default function MenuHeaderActions({
         
         <Link href="/admin/ingredients" className="flex-1 sm:flex-none">
           <Button variant="outline" className="w-full sm:w-auto bg-transparent">
-            Ingredients
+            Bahan Baku
           </Button>
         </Link>
         
         <Link href="/admin/archived-menu">
-          <Button variant="outline">Lihat Arsip</Button>
+          <Button variant="outline">Arsip Menu</Button>
         </Link>
 
         <Dialog open={openCreate} onOpenChange={setOpenCreate}>
