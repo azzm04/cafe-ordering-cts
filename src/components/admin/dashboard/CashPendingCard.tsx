@@ -2,15 +2,22 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Wallet, CheckCircle2 } from "lucide-react";
+import { Wallet, CheckCircle2, Tag } from "lucide-react";
 import type { ActiveOrder } from "@/lib/admin-services/overview";
+
+// Extend type untuk mendukung discount_amount
+type ActiveOrderWithDiscount = ActiveOrder & {
+  discount_amount?: number;
+};
 
 export function CashPendingCard({
   items,
   onConfirm,
+  onDiscount,
 }: {
-  items: ActiveOrder[];
+  items: ActiveOrderWithDiscount[];
   onConfirm: (orderNumber: string) => void;
+  onDiscount?: (order: ActiveOrderWithDiscount) => void;
 }) {
   return (
     <Card className="overflow-hidden border-none shadow-md bg-white/50 backdrop-blur-sm dark:bg-card/40 ring-1 ring-border/50 rounded-2xl">
@@ -74,18 +81,40 @@ export function CashPendingCard({
                     <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                       Total Tagihan
                     </p>
-                    <p className="text-2xl font-black text-primary">
-                      Rp {Number(o.total_amount).toLocaleString("id-ID")}
-                    </p>
+                    <div className="flex items-end justify-between">
+                      <p className="text-2xl font-black text-primary">
+                        Rp {Number(o.total_amount).toLocaleString("id-ID")}
+                      </p>
+                      {/* Tampilkan info diskon jika ada */}
+                      {o.discount_amount != null && o.discount_amount > 0 && (
+                        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 mb-1">
+                          Hemat {o.discount_amount.toLocaleString("id-ID")}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  <Button
-                    onClick={() => onConfirm(o.order_number)}
-                    className="w-full bg-primary hover:bg-primary/90 shadow-sm transition-all active:scale-95"
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Konfirmasi Lunas
-                  </Button>
+                  <div className="flex gap-2">
+                    {/* TOMBOL BERI DISKON (Hanya muncul jika onDiscount dipassing) */}
+                    {onDiscount && (
+                      <Button
+                        variant="outline"
+                        onClick={() => onDiscount(o)}
+                        className="flex-1 bg-background hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200"
+                      >
+                        <Tag className="w-4 h-4 mr-2" />
+                        Diskon
+                      </Button>
+                    )}
+
+                    <Button
+                      onClick={() => onConfirm(o.order_number)}
+                      className={`shadow-sm transition-all active:scale-95 ${onDiscount ? "flex-1" : "w-full"}`}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Lunas
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

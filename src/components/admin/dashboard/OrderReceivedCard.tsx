@@ -89,7 +89,7 @@ export function OrderReceivedCard({
                         ) : (
                           <CreditCard className="w-3 h-3 mr-1" />
                         )}
-                        {o.payment_method === "cash" ? "Tunai" : "Digital"}
+                        {o.payment_method === "cash" ? "Tunai" : "Midtrans"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">

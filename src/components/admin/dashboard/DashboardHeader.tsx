@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   RefreshCcw,
   LogOut,
-  History,
+  History, PlusCircle 
 } from "lucide-react";
 
 export function DashboardHeader({
@@ -12,11 +12,13 @@ export function DashboardHeader({
   onRefresh,
   loading,
   rightSlot,
+  showManualOrder = false,
 }: {
   title: string;
   onRefresh: () => void;
   loading: boolean;
   rightSlot?: React.ReactNode;
+  showManualOrder?: boolean;
 }) {
   return (
     <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 pb-6 border-b border-border/40">
@@ -27,6 +29,16 @@ export function DashboardHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+        {showManualOrder && (
+          <Link href="/admin/manual-order">
+            <Button 
+              className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white shadow-md hover:shadow-lg transition-all duration-200"
+            >
+              <PlusCircle className="w-4 h-4 mr-2" />
+              Manual Order
+            </Button>
+          </Link>
+        )}
         <Button
           variant="secondary"
           onClick={onRefresh}

@@ -14,6 +14,10 @@ import {
   updateFulfillmentStatus,
 } from "@/lib/admin-services/orders";
 import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
+import { Card } from "@/components/ui/card";
+import { useState } from "react";
+import { ManualOrderDialog } from "@/components/admin/dashboard/ManualOrderDialog";
+
 
 export default function AdminKasirDashboardClient() {
   const {
@@ -25,6 +29,8 @@ export default function AdminKasirDashboardClient() {
     preparing,
     activeServed,
   } = useAdminOverview();
+    const [manualOrderOpen, setManualOrderOpen] = useState(false);
+  
 
   useAutoCancelExpiredOrders({
     enabled: true,
@@ -46,6 +52,9 @@ export default function AdminKasirDashboardClient() {
     },
   });
 
+  const handleManualOrderCreated = () => {
+    void refresh();
+  };
   return (
     <main className="min-h-screen bg-background relative">
       {/* Background Pattern */}
@@ -53,10 +62,11 @@ export default function AdminKasirDashboardClient() {
 
       <div className="relative z-10 mx-auto max-w-400 p-4 sm:p-6 lg:p-8 space-y-8">
         <DashboardHeader
-          title="Dashboard Kasir"
-          onRefresh={refresh}
-          loading={loading}
-        />
+            title="Dashboard Kasir"
+            onRefresh={refresh}
+            loading={loading}
+            showManualOrder={true}
+          />
 
         <DashboardAutoRefresh
           intervalMs={5000}
@@ -65,10 +75,6 @@ export default function AdminKasirDashboardClient() {
         />
 
         <section className="space-y-4">
-          <h3 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span className="w-1.5 h-6 bg-primary rounded-full"></span>
-            Status Meja
-          </h3>
           <TablesCard tables={tables} />
         </section>
 
@@ -142,6 +148,12 @@ export default function AdminKasirDashboardClient() {
           />
         </div>
       </div>
+      <ManualOrderDialog
+              open={manualOrderOpen}
+              onOpenChange={setManualOrderOpen}
+              tables={tables}
+              onOrderCreated={handleManualOrderCreated}
+            />
     </main>
   );
 }

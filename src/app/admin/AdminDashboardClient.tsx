@@ -5,9 +5,8 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { AdminRole } from "@/lib/admin-auth";
-import DashboardOperationalPanel, {
-  type ActiveOrder,
-} from "@/components/admin/dashboard/DashboardOperationalPanel";
+import DashboardOperationalPanel from "@/components/admin/dashboard/DashboardOperationalPanel";
+import type { ActiveOrder } from "@/lib/admin-services/overview";
 import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
 import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
 import { logout } from "@/lib/logout";

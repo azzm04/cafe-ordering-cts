@@ -63,7 +63,7 @@ export function OrderServedCard({
                     variant="secondary"
                     className="bg-background/80 backdrop-blur text-[10px] border border-border/50"
                   >
-                    {o.payment_method === "cash" ? "Tunai" : "Digital"}
+                    {o.payment_method === "cash" ? "Tunai" : "Midtrans"}
                   </Badge>
                 </div>
 

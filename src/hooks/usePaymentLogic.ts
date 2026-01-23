@@ -9,6 +9,16 @@ import { useOrder } from "@/hooks/useOrder";
 
 export type PaymentMethod = "midtrans" | "cash";
 
+// 1. Definisikan tipe response API secara eksplisit
+interface CashApiResponse {
+  message?: string;
+  order?: {
+    order_number: string;
+  };
+  // Fallback support jika format response berbeda
+  orderNumber?: string; 
+}
+
 export function usePaymentLogic() {
   const router = useRouter();
   const { snapReady } = useMidtransSnap();
@@ -52,15 +62,17 @@ export function usePaymentLogic() {
       voucherCode,
     });
 
-    window.snap.pay(snapToken, {
-      onSuccess: () => {
-        clearCart();
-        router.push(`/nota/${orderNumber}`);
-      },
-      onPending: () => router.push(`/nota/${orderNumber}`),
-      onError: () => router.push(`/nota/${orderNumber}`),
-      onClose: () => router.push(`/nota/${orderNumber}`),
-    });
+    if (window.snap) {
+      window.snap.pay(snapToken, {
+        onSuccess: () => {
+          clearCart();
+          router.push(`/nota/${orderNumber}`);
+        },
+        onPending: () => router.push(`/nota/${orderNumber}`),
+        onError: () => router.push(`/nota/${orderNumber}`),
+        onClose: () => router.push(`/nota/${orderNumber}`)
+      });
+    }
   };
 
   const processCash = async (voucherCode?: string) => {
@@ -77,23 +89,17 @@ export function usePaymentLogic() {
       }),
     });
 
-    const json: unknown = await res.json();
+    // 2. Parsing JSON dengan Type Assertion (bukan any)
+    const json = (await res.json()) as CashApiResponse;
 
     if (!res.ok) {
-      const msg =
-        typeof json === "object" && json !== null && "message" in json
-          ? String((json as Record<string, unknown>).message)
-          : "Gagal membuat order cash";
-      throw new Error(msg);
+      throw new Error(json.message || "Gagal membuat order cash");
     }
 
-    const orderNumber =
-      typeof json === "object" && json !== null && "orderNumber" in json
-        ? (json as Record<string, unknown>).orderNumber
-        : null;
+    // 3. Ambil data dengan type safe
+    const orderNumber = json.order?.order_number || json.orderNumber;
 
-    if (typeof orderNumber !== "string")
-      throw new Error("Invalid response: orderNumber missing");
+    if (!orderNumber) throw new Error("Invalid response: Order Number missing");
 
     clearCart();
     router.push(`/nota/${orderNumber}`);

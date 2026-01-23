@@ -64,8 +64,8 @@ export default function AdminHistoryPage() {
 
       toast.success("Pesanan berhasil dihapus");
       fetchHistory();
-    } catch (e) {
-      toast.error("Terjadi kesalahan jaringan");
+    } catch (err) {
+      toast.error("Terjadi kesalahan jaringan " + (err instanceof Error ? err.message : ""));
     }
   };
 
