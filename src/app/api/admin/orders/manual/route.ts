@@ -50,7 +50,6 @@ async function createMidtransTransaction(orderNumber: string, amount: number, cu
     enabled_payments: ["qris", "gopay", "shopeepay", "other_qris"],
     callbacks: {
       finish: `${baseUrl}/nota/${orderNumber}`,
-      // Optional: tambahkan callback lain
       // error: `${baseUrl}/payment-error?order_id=${orderNumber}`,
       // pending: `${baseUrl}/nota/${orderNumber}`,
     },
