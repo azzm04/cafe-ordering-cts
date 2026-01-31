@@ -12,12 +12,8 @@ import { CashPendingCard } from "@/components/admin/dashboard/CashPendingCard";
 import { OrderReceivedCard } from "@/components/admin/dashboard/OrderReceivedCard";
 import { OrderPreparingCard } from "@/components/admin/dashboard/OrderPreparingCard";
 import { OrderServedCard } from "@/components/admin/dashboard/OrderServedCard";
+import { Table } from "@/types/index";
 
-type TableRow = {
-  id: string;
-  table_number: number;
-  status: "available" | "occupied" | "reserved";
-};
 
 // ... safeMessage function ...
 function safeMessage(json: unknown, fallback: string) {
@@ -27,17 +23,20 @@ function safeMessage(json: unknown, fallback: string) {
   return fallback;
 }
 
+interface DashboardOperationalPanelProps {
+  tables: Table[]; 
+  orders: ActiveOrder[];
+  onRefresh: () => Promise<void>;
+  adminRole?: "kasir" | "owner";
+}
+
 export default function DashboardOperationalPanel({
   tables,
   orders,
   onRefresh,
   adminRole = "kasir",
-}: {
-  tables: TableRow[];
-  orders: ActiveOrder[];
-  onRefresh: () => Promise<void>;
-  adminRole?: "owner" | "kasir";
-}) {
+}: DashboardOperationalPanelProps)
+{
   const [discountDialog, setDiscountDialog] = useState<ActiveOrder | null>(
     null,
   );

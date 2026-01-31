@@ -105,7 +105,7 @@ export default function MenuHeaderActions({
         </Link>
         
         <Link href="/admin/archived-menu">
-          <Button variant="outline">Arsip Menu</Button>
+          <Button variant="outline" className="w-full sm:w-auto bg-transparent">Arsip Menu</Button>
         </Link>
 
         <Dialog open={openCreate} onOpenChange={setOpenCreate}>

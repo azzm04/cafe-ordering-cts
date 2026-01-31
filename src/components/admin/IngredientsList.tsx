@@ -84,7 +84,7 @@ export default function IngredientsList({
 
   // cache for fetched menu names by ingredient id
   const [menuNamesMap, setMenuNamesMap] = useState<Record<string, string[]>>(
-    {}
+    {},
   );
   const [menuLoading, setMenuLoading] = useState<Record<string, boolean>>({});
   const [menuError, setMenuError] = useState<Record<string, string>>({});
@@ -160,7 +160,7 @@ export default function IngredientsList({
       return (
         <Badge
           variant="destructive"
-          className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200 shadow-none"
+          className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200 shadow-none whitespace-nowrap"
         >
           Habis
         </Badge>
@@ -169,7 +169,7 @@ export default function IngredientsList({
       return (
         <Badge
           variant="secondary"
-          className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 shadow-none"
+          className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 shadow-none whitespace-nowrap"
         >
           Menipis
         </Badge>
@@ -177,7 +177,7 @@ export default function IngredientsList({
     return (
       <Badge
         variant="outline"
-        className="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-none"
+        className="bg-emerald-50 text-emerald-700 border-emerald-200 shadow-none whitespace-nowrap"
       >
         Aman
       </Badge>
@@ -186,16 +186,14 @@ export default function IngredientsList({
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards - Layout Horizontal */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Summary Cards - Responsive Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Card 1: Total Item */}
         <Card className="shadow-sm border-border">
           <div className="p-4 flex items-center gap-4">
-            {/* Icon Wrapper (Kiri) */}
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50">
               <Package className="h-6 w-6 text-blue-600" />
             </div>
-            {/* Text Wrapper (Kanan) */}
             <div className="space-y-1">
               <p className="text-sm font-medium text-muted-foreground">
                 Total Item
@@ -258,22 +256,22 @@ export default function IngredientsList({
       </div>
 
       <Card className="shadow-sm border-border">
-        {/* Toolbar */}
+        {/* Toolbar - Responsive Flex */}
         <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b">
-          <div className="relative flex-1 max-w-sm">
+          <div className="relative flex-1 w-full sm:max-w-sm">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Cari nama bahan..."
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="pl-9 h-9"
+              className="pl-9 h-9 w-full"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Filter className="h-4 w-4 text-muted-foreground" />
             <select
               aria-label="select"
-              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-9 flex-1 sm:flex-none rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
@@ -285,19 +283,25 @@ export default function IngredientsList({
           </div>
         </div>
 
-        {/* Tabel */}
+        {/* Tabel - Responsive Columns */}
         <div className="relative w-full overflow-auto">
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow>
-                <TableHead className="w-[30%] min-w-50">Nama Bahan</TableHead>
-                <TableHead className="w-[15%]">Stok Saat Ini</TableHead>
-                <TableHead className="w-[15%]">Min. Stok</TableHead>
-                <TableHead className="w-30">Status</TableHead>
-                <TableHead className="w-45 hidden md:table-cell">
+                <TableHead className="w-[35%] sm:w-[30%]">Nama Bahan</TableHead>
+                <TableHead className="w-[20%] sm:w-[15%]">Stok</TableHead>
+                {/* Min Stok Hidden on Mobile */}
+                <TableHead className="hidden sm:table-cell w-[15%]">
+                  Min. Stok
+                </TableHead>
+                <TableHead className="w-[20%] sm:w-auto">Status</TableHead>
+                {/* Menu Terkait Hidden on Mobile/Tablet */}
+                <TableHead className="hidden md:table-cell w-[20%]">
                   Menu Terkait
                 </TableHead>
-                <TableHead className="text-right w-35">Aksi</TableHead>
+                <TableHead className="text-right w-[25%] sm:w-auto">
+                  Aksi
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -313,15 +317,16 @@ export default function IngredientsList({
               ) : (
                 items.map((it) => (
                   <TableRow key={it.id} className="hover:bg-muted/5">
-                    <TableCell className="font-medium">
-                      <div className="flex flex-col">
+                    <TableCell className="font-medium align-top sm:align-middle">
+                      <div className="flex flex-col gap-0.5">
                         <span className="text-sm">{it.name}</span>
-                        <span className="text-[10px] text-muted-foreground md:hidden">
+                        {/* Mobile Only Min Stock Display */}
+                        <span className="text-[10px] text-muted-foreground sm:hidden">
                           Min: {it.min_stock} {it.unit}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="align-top sm:align-middle">
                       <div className="font-medium text-sm">
                         {it.current_stock}{" "}
                         <span className="text-muted-foreground text-xs font-normal">
@@ -329,16 +334,16 @@ export default function IngredientsList({
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <span className="text-muted-foreground text-sm">
                         {it.min_stock} {it.unit}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="align-top sm:align-middle">
                       <StatusBadge s={it.stock_status} />
                     </TableCell>
 
-                    {/* KOLOM MENU TERKAIT DENGAN POPOVER */}
+                    {/* Menu Popover - Desktop Only */}
                     <TableCell className="hidden md:table-cell">
                       {it.used_in_menu_count > 0 ? (
                         <Popover>
@@ -359,7 +364,6 @@ export default function IngredientsList({
                                 Digunakan di menu:
                               </h4>
 
-                              {/* show loading / error / items */}
                               {menuLoading[it.id] ? (
                                 <p className="text-sm text-muted-foreground">
                                   Memuat...
@@ -401,12 +405,12 @@ export default function IngredientsList({
                       )}
                     </TableCell>
 
-                    <TableCell className="text-right">
-                      <div className="flex justify-end items-center gap-1">
+                    <TableCell className="text-right align-top sm:align-middle">
+                      <div className="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-2 sm:gap-1">
                         <Button
                           size="sm"
                           variant="secondary"
-                          className="h-8 text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 shadow-sm"
+                          className="h-7 sm:h-8 text-[10px] sm:text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 shadow-sm w-full sm:w-auto"
                           onClick={() =>
                             setOpenRestock({
                               id: it.id,
@@ -418,27 +422,29 @@ export default function IngredientsList({
                         >
                           Restock
                         </Button>
-                        <Link href={`/admin/ingredients/${it.id}/edit`}>
+                        <div className="flex items-center gap-1">
+                          <Link href={`/admin/ingredients/${it.id}/edit`}>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted"
+                              title="Edit Bahan"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-muted"
-                            title="Edit Bahan"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-red-50"
+                            title="Hapus Bahan"
+                            onClick={() =>
+                              setDeleteDialog({ id: it.id, name: it.name })
+                            }
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                        </Link>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-red-50"
-                          title="Hapus Bahan"
-                          onClick={() =>
-                            setDeleteDialog({ id: it.id, name: it.name })
-                          }
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -461,7 +467,7 @@ export default function IngredientsList({
         open={!!deleteDialog}
         onOpenChange={(open) => !open && setDeleteDialog(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[90%] sm:max-w-lg rounded-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Bahan?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -474,12 +480,17 @@ export default function IngredientsList({
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
+          <AlertDialogFooter className="flex-row gap-2 justify-end sm:gap-0">
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="flex-1 sm:flex-none mt-0"
+            >
+              Batal
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isDeleting}
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-destructive hover:bg-destructive/90 flex-1 sm:flex-none"
             >
               {isDeleting ? "Menghapus..." : "Hapus"}
             </AlertDialogAction>

@@ -7,38 +7,39 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Receipt } from "lucide-react";
 import { toast } from "sonner";
 
-// Import sub-components (Ensure these files exist as per previous messages)
+// Import sub-components
 import { StepIndicator } from "@/components/admin/manual-order/StepIndicator";
 import { StepTableSelection } from "@/components/admin/manual-order/StepTableSelection";
 import { StepMenuSelection } from "@/components/admin/manual-order/StepMenuSelection";
 import { StepOrderConfirmation } from "@/components/admin/manual-order/StepOrderConfirmation";
 
-// Import types
-import type { Table, CartItem, MenuItem } from "@/types/manual-order";
+// Import types from manual-order for consistency
+import type { Table, MenuItem, CartItem } from "@/types/manual-order";
 
 export default function ManualOrderPage() {
   const [step, setStep] = useState<"table" | "menu" | "confirm">("table");
+
+  // State for selected table
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+
+  // State for cart
   const [cart, setCart] = useState<CartItem[]>([]);
 
   // --- Cart Logic ---
   const addToCart = (item: MenuItem) => {
-    const isOutOfStock = item.max_portions === 0;
-    if (isOutOfStock) {
-      toast.error("Menu ini sedang habis");
+    if (!item.is_available) {
+      toast.error("Menu ini sedang tidak tersedia");
       return;
     }
 
     setCart((prev) => {
       const existing = prev.find((c) => c.id === item.id);
       if (existing) {
-        if (typeof item.max_portions === 'number' && existing.quantity >= item.max_portions) {
-          toast.error(`Maksimal ${item.max_portions} porsi`);
-          return prev;
-        }
-        return prev.map((c) => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
+        return prev.map((c) =>
+          c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c,
+        );
       }
-      return [...prev, { ...item, quantity: 1 }];
+      return [...prev, { ...item, quantity: 1, notes: "" }];
     });
     toast.success(`${item.name} ditambahkan`);
   };
@@ -52,12 +53,14 @@ export default function ManualOrderPage() {
       removeFromCart(itemId);
       return;
     }
-    const item = cart.find((c) => c.id === itemId);
-    if (item && typeof item.max_portions === 'number' && quantity > item.max_portions) {
-      toast.error(`Maksimal ${item.max_portions} porsi`);
-      return;
-    }
-    setCart((prev) => prev.map((c) => (c.id === itemId ? { ...c, quantity } : c)));
+    setCart((prev) =>
+      prev.map((c) => (c.id === itemId ? { ...c, quantity } : c)),
+    );
+  };
+
+  // NEW: Update notes function
+  const updateNotes = (itemId: string, notes: string) => {
+    setCart((prev) => prev.map((c) => (c.id === itemId ? { ...c, notes } : c)));
   };
 
   return (
@@ -69,7 +72,11 @@ export default function ManualOrderPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Link href="/admin/kasir">
-                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
                     <ArrowLeft className="w-4 h-4 mr-2" /> Kembali
                   </Button>
                 </Link>
@@ -87,7 +94,12 @@ export default function ManualOrderPage() {
                 </div>
               </div>
 
-              <StepIndicator step={step} setStep={setStep} hasTable={!!selectedTable} hasCart={cart.length > 0} />
+              <StepIndicator
+                step={step}
+                setStep={setStep}
+                hasTable={!!selectedTable}
+                hasCart={cart.length > 0}
+              />
             </div>
           </div>
         </header>
@@ -95,31 +107,30 @@ export default function ManualOrderPage() {
         {/* Content Area */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-auto">
           {step === "table" && (
-            <StepTableSelection 
-              selectedTable={selectedTable} 
+            <StepTableSelection
+              selectedTable={selectedTable}
               onSelectTable={(table) => {
                 setSelectedTable(table);
-                // Optional: Auto advance if you prefer
-                // setStep("menu"); 
-              }} 
-              onNext={() => setStep("menu")} 
+              }}
+              onNext={() => setStep("menu")}
             />
           )}
 
           {step === "menu" && selectedTable && (
-            <StepMenuSelection 
+            <StepMenuSelection
               selectedTable={selectedTable}
               cart={cart}
               addToCart={addToCart}
               removeFromCart={removeFromCart}
               updateQuantity={updateQuantity}
+              updateNotes={updateNotes}
               onNext={() => setStep("confirm")}
               onBack={() => setStep("table")}
             />
           )}
 
           {step === "confirm" && selectedTable && (
-            <StepOrderConfirmation 
+            <StepOrderConfirmation
               selectedTable={selectedTable}
               cart={cart}
               onBack={() => setStep("menu")}

@@ -3,10 +3,24 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
-type TableRow = {
+// Helper: Translate Status DB (Inggris) -> UI (Indonesia)
+const translateToIndonesian = (status: string): "tersedia" | "terisi" | "dipesan" => {
+  const s = status.toLowerCase();
+  if (s === "occupied" || s === "terisi") return "terisi";
+  if (s === "reserved" || s === "dipesan") return "dipesan";
+  return "tersedia";
+};
+
+type TableRowResponse = {
   id: string;
   table_number: number;
-  status: "available" | "occupied" | "reserved";
+  status: "tersedia" | "terisi" | "dipesan"; 
+};
+
+type TableRowDB = {
+  id: string;
+  table_number: number;
+  status: string; 
 };
 
 type ActiveTableRef = {
@@ -31,21 +45,18 @@ type ActiveOrder = {
 
 export async function GET() {
   try {
-    // 1. Fetch all tables
     const { data: tables, error: tErr } = await supabaseServer
       .from("tables")
       .select("id, table_number, status")
       .order("table_number", { ascending: true })
-      .returns<TableRow[]>();
+      .returns<TableRowDB[]>();
 
     if (tErr) {
       console.error("Error fetching tables:", tErr);
-      return NextResponse.json(
-        { message: tErr.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ message: tErr.message }, { status: 500 });
     }
 
+    // Cek Order yang Aktif (Paid tapi belum Complete)
     const { data: activeRefs, error: aErr } = await supabaseServer
       .from("orders")
       .select("table_id")
@@ -55,14 +66,10 @@ export async function GET() {
 
     if (aErr) {
       console.error("Error fetching active orders:", aErr);
-      return NextResponse.json(
-        { message: aErr.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ message: aErr.message }, { status: 500 });
     }
 
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-
     const { data: expiredOrders } = await supabaseServer
       .from("orders")
       .select("id, table_id")
@@ -81,9 +88,10 @@ export async function GET() {
         })
         .in("id", expiredOrderIds);
 
+      // Reset meja jadi available di DB
       await supabaseServer
         .from("tables")
-        .update({ status: "available" })
+        .update({ status: "available" }) 
         .in("id", expiredTableIds);
 
       console.log(`Auto-expired ${expiredOrders.length} orders`);
@@ -91,10 +99,14 @@ export async function GET() {
 
     const occupiedSet = new Set((activeRefs ?? []).map((x) => x.table_id));
 
-    const mergedTables = (tables ?? []).map((t) => ({
-      ...t,
-      status: occupiedSet.has(t.id) ? ("occupied" as const) : t.status,
-    }));
+    const mergedTables: TableRowResponse[] = (tables ?? []).map((t) => {
+      const logicalStatus = occupiedSet.has(t.id) ? "occupied" : t.status;
+      
+      return {
+        ...t,
+        status: translateToIndonesian(logicalStatus),
+      };
+    });
 
     const { data: activeOrders, error: ordersErr } = await supabaseServer
       .from("orders")
@@ -118,10 +130,7 @@ export async function GET() {
 
     if (ordersErr) {
       console.error("Error fetching active orders:", ordersErr);
-      return NextResponse.json(
-        { message: ordersErr.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ message: ordersErr.message }, { status: 500 });
     }
 
     return NextResponse.json({

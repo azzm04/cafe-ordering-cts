@@ -50,8 +50,6 @@ async function createMidtransTransaction(orderNumber: string, amount: number, cu
     enabled_payments: ["qris", "gopay", "shopeepay", "other_qris"],
     callbacks: {
       finish: `${baseUrl}/nota/${orderNumber}`,
-      // error: `${baseUrl}/payment-error?order_id=${orderNumber}`,
-      // pending: `${baseUrl}/nota/${orderNumber}`,
     },
   };
 
@@ -110,9 +108,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (table.status !== "available") {
+    // --- FIX 1: LOGIKA PENGECEKAN BAHASA INDONESIA ---
+    // Kita cek apakah statusnya "tersedia". 
+    // Kita juga izinkan "available" jaga-jaga jika ada data lama yang belum terupdate.
+    const isTableAvailable = table.status === "tersedia" || table.status === "available";
+
+    if (!isTableAvailable) {
       return NextResponse.json(
-        { message: "Meja sudah terisi, pilih meja lain" },
+        { message: `Meja ${table.table_number} sudah terisi/dipesan, pilih meja lain` },
         { status: 400 }
       );
     }
@@ -127,8 +130,6 @@ export async function POST(req: NextRequest) {
     const orderNumber = generateOrderNumber();
 
     // Determine payment status
-    // Cash = pending (tunggu konfirmasi kasir)
-    // Midtrans = pending (tunggu payment dari customer)
     const paymentStatus = "pending";
 
     // Create order object
@@ -155,7 +156,6 @@ export async function POST(req: NextRequest) {
           body.customer_name || `Meja ${body.table_number}`
         );
 
-        // Add Midtrans data to order
         orderInsertData["midtrans_snap_token"] = midtransData.token;
         orderInsertData["midtrans_redirect_url"] = midtransData.redirect_url;
       } catch (midtransError) {
@@ -222,10 +222,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Update table status to occupied
+    // --- FIX 2: UPDATE STATUS MEJA KE BAHASA INDONESIA ---
+    // Saat order dibuat, meja harus menjadi "terisi" (bukan "occupied")
     await supabase
       .from("tables")
-      .update({ status: "occupied" })
+      .update({ status: "terisi" }) 
       .eq("id", body.table_id);
 
     // Update stock for each menu item
@@ -250,7 +251,6 @@ export async function POST(req: NextRequest) {
       payment_method: body.payment_method,
     };
 
-    // If Midtrans, include payment link
     if (body.payment_method === "midtrans" && midtransData) {
       response.midtrans_token = midtransData.token;
       response.midtrans_redirect_url = midtransData.redirect_url;

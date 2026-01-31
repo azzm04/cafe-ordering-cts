@@ -10,15 +10,10 @@ import type { ActiveOrder } from "@/lib/admin-services/overview";
 import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
 import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
 import { logout } from "@/lib/logout";
-
-type TableRow = {
-  id: string;
-  table_number: number;
-  status: "available" | "occupied" | "reserved";
-};
+import { Table } from "@/types/index";
 
 type OverviewResponse = {
-  tables: TableRow[];
+  tables: Table[];
   activeOrders: ActiveOrder[];
 };
 
@@ -34,7 +29,7 @@ export default function AdminDashboardClient({
 }: {
   role: AdminRole | null;
 }) {
-  const [tables, setTables] = useState<TableRow[]>([]);
+  const [tables, setTables] = useState<Table[]>([]);
   const [orders, setOrders] = useState<ActiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,7 +39,8 @@ export default function AdminDashboardClient({
       const res = await fetch(`/api/admin/overview?t=${Date.now()}`, {
         cache: "no-store",
       });
-      const json = (await res.json()) as unknown;
+      
+      const json = await res.json();
 
       if (!res.ok) throw new Error(safeMessage(json, "Gagal load dashboard"));
 

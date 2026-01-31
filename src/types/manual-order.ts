@@ -1,9 +1,10 @@
-export type TableStatus = "available" | "occupied" | "reserved";
+// src/types/manual-order.ts
+export type TableStatus = "tersedia" | "terisi" | "dipesan";
 
 export interface Table {
   id: string;
   table_number: number;
-  status: TableStatus;
+  status: TableStatus; // Indonesian: tersedia/terisi/dipesan
 }
 
 export interface MenuItem {
@@ -15,17 +16,15 @@ export interface MenuItem {
   image_url: string | null;
   is_available: boolean;
   variant_group: string | null;
-  max_portions?: number | null; // Optional karena data dari DB bisa null
-  created_at?: string;
+  max_portions: number | null; 
+  created_at?: string; // Optional for flexibility
 }
 
-// CartItem mewarisi semua properti MenuItem ditambah quantity dan notes
 export interface CartItem extends MenuItem {
   quantity: number;
   notes?: string;
 }
 
-// Tipe data untuk payload saat submit ke API (optional, tapi good practice)
 export interface ManualOrderPayload {
   table_id: string;
   table_number: number;

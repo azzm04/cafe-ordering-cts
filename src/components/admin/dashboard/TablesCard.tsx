@@ -2,67 +2,60 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LayoutGrid, Armchair, Users } from "lucide-react";
+import { Table } from "@/types/index"; // Gunakan import pusat
 
-interface Table {
-  id: string;
-  table_number: number;
-  status: "available" | "occupied" | "reserved";
-}
 
 export function TablesCard({ tables }: { tables: Table[] }) {
-  const availableCount = tables.filter((t) => t.status === "available").length;
-  const occupiedCount = tables.filter((t) => t.status === "occupied").length;
+  // Update filter ke Bahasa Indonesia
+  const availableCount = tables.filter((t) => t.status === "tersedia").length;
+  const occupiedCount = tables.filter((t) => t.status === "terisi").length;
 
-  // Helper untuk warna status badge
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (status: Table["status"]) => {
     switch (status) {
-      case "available":
+      case "tersedia":
         return "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200";
-      case "occupied":
+      case "terisi":
         return "bg-red-100 text-red-700 hover:bg-red-200 border-red-200";
-      case "reserved":
+      case "dipesan":
         return "bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200";
       default:
         return "bg-gray-100 text-gray-700";
     }
   };
 
-  // Helper untuk teks status
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: Table["status"]) => {
     switch (status) {
-      case "available":
+      case "tersedia":
         return "Kosong";
-      case "occupied":
+      case "terisi":
         return "Terisi";
-      case "reserved":
-        return "Reserved";
+      case "dipesan":
+        return "Reserved"; // Atau "Dipesan"
       default:
         return status;
     }
   };
 
-  // Helper untuk style card meja individu
-  const getCardStyle = (status: string) => {
+  const getCardStyle = (status: Table["status"]) => {
     switch (status) {
-      case "available":
+      case "tersedia":
         return "bg-card border-border/60 hover:border-emerald-400 hover:shadow-[0_4px_20px_-10px_rgba(16,185,129,0.3)] hover:-translate-y-1";
-      case "occupied":
+      case "terisi":
         return "bg-red-50/40 border-red-200 hover:border-red-400 hover:shadow-[0_4px_20px_-10px_rgba(239,68,68,0.3)] hover:-translate-y-1";
-      case "reserved":
+      case "dipesan":
         return "bg-blue-50/40 border-blue-200 hover:border-blue-400 hover:shadow-[0_4px_20px_-10px_rgba(59,130,246,0.3)] hover:-translate-y-1";
       default:
         return "bg-muted";
     }
   };
 
-  // Helper untuk warna icon meja
-  const getIconColor = (status: string) => {
+  const getIconColor = (status: Table["status"]) => {
     switch (status) {
-      case "available":
+      case "tersedia":
         return "text-emerald-500 bg-emerald-100";
-      case "occupied":
+      case "terisi":
         return "text-red-500 bg-red-100";
-      case "reserved":
+      case "dipesan":
         return "text-blue-500 bg-blue-100";
       default:
         return "text-muted-foreground bg-muted";
@@ -124,7 +117,7 @@ export function TablesCard({ tables }: { tables: Table[] }) {
                   <Armchair className="w-4 h-4" />
                 </div>
                 <div
-                  className={`w-2 h-2 rounded-full ${table.status === "available" ? "bg-emerald-500" : table.status === "occupied" ? "bg-red-500" : "bg-blue-500"}`}
+                  className={`w-2 h-2 rounded-full ${table.status === "tersedia" ? "bg-emerald-500" : table.status === "terisi" ? "bg-red-500" : "bg-blue-500"}`}
                 />
               </div>
 
