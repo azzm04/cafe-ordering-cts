@@ -14,21 +14,21 @@ export function PaymentMethodSelector({ method, setMethod, loading }: Props) {
         <Wallet className="h-4 w-4 text-primary" />
         Metode Pembayaran
       </h3>
-      
+
       <div className="grid gap-3 sm:grid-cols-2">
-        {/* QRIS Button */}
-        <SelectionCard 
-          active={method === "midtrans"} 
-          onClick={() => setMethod("midtrans")}
+        {/* Online (Mayar) */}
+        <SelectionCard
+          active={method === "online"}
+          onClick={() => setMethod("online")}
           loading={loading}
           icon={<QrCode className="h-5 w-5" />}
-          title="QRIS / Transfer"
-          desc="Otomatis verifikasi"
+          title="Mayar-ID"
+          desc="Transfer, E-Wallet"
         />
 
-        {/* Cash Button */}
-        <SelectionCard 
-          active={method === "cash"} 
+        {/* Cash */}
+        <SelectionCard
+          active={method === "cash"}
           onClick={() => setMethod("cash")}
           loading={loading}
           icon={<Banknote className="h-5 w-5" />}
@@ -39,23 +39,22 @@ export function PaymentMethodSelector({ method, setMethod, loading }: Props) {
 
       {/* Info Box */}
       <div className="rounded-xl bg-muted/30 p-4 text-xs text-muted-foreground border border-border/50 flex gap-3 items-start">
-         <div className="mt-0.5 shrink-0">
-           {method === "midtrans" ? (
-             <ShieldCheck className="h-4 w-4 text-primary" />
-           ) : (
-             <Receipt className="h-4 w-4 text-primary" />
-           )}
-         </div>
-         <p className="leading-relaxed">
-           {method === "midtrans"
-             ? "Pembayaran diproses aman via Midtrans. Mendukung GoPay, ShopeePay, OVO, Dana, dan Transfer Bank."
-             : "Silakan menuju kasir setelah membuat pesanan untuk melakukan pembayaran tunai. Pesanan akan diproses setelah dikonfirmasi."}
-         </p>
+        <div className="mt-0.5 shrink-0">
+          {method === "online" ? (
+            <ShieldCheck className="h-4 w-4 text-primary" />
+          ) : (
+            <Receipt className="h-4 w-4 text-primary" />
+          )}
+        </div>
+        <p className="leading-relaxed">
+          {method === "online"
+            ? "Pembayaran diproses aman via Mayar-ID. Mendukung Transfer Bank, GCash, Dana, dan E-Wallet lainnya."
+            : "Silakan menuju kasir setelah membuat pesanan untuk melakukan pembayaran tunai. Pesanan akan diproses setelah dikonfirmasi."}
+        </p>
       </div>
     </div>
   );
 }
-
 
 interface SelectionCardProps {
   active: boolean;
@@ -79,16 +78,20 @@ function SelectionCard({ active, onClick, loading, icon, title, desc }: Selectio
       }`}
     >
       <div className={`rounded-full p-2 transition-colors ${
-        active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+        active
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
       }`}>
-         {icon}
+        {icon}
       </div>
       <div>
-         <span className={`block font-bold ${active ? "text-primary" : "text-foreground"}`}>{title}</span>
-         <span className="text-xs text-muted-foreground mt-0.5 block">{desc}</span>
+        <span className={`block font-bold ${active ? "text-primary" : "text-foreground"}`}>
+          {title}
+        </span>
+        <span className="text-xs text-muted-foreground mt-0.5 block">{desc}</span>
       </div>
       {active && (
-         <div className="absolute top-4 right-4 h-3 w-3 rounded-full bg-primary shadow-sm ring-2 ring-background" />
+        <div className="absolute top-4 right-4 h-3 w-3 rounded-full bg-primary shadow-sm ring-2 ring-background" />
       )}
     </button>
   );

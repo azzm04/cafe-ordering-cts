@@ -1,6 +1,6 @@
 "use client";
 
-import type { MenuItem } from "@/types";
+import type { MenuItem } from "@/types/index";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/store/cartStore";

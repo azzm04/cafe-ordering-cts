@@ -10,7 +10,7 @@ import { PaymentHeader } from "@/components/payment/PaymentHeader";
 import { PaymentSummary } from "@/components/payment/PaymentSummary";
 import { PaymentMethodSelector } from "@/components/payment/PaymentMethodSelector";
 import { PaymentAction } from "@/components/payment/PaymentAction";
-import { VoucherInput } from "@/components/cart/VoucherInput"; // Import komponen voucher
+import { VoucherInput } from "@/components/cart/VoucherInput";
 
 export default function PembayaranPage() {
   const router = useRouter();
@@ -18,16 +18,14 @@ export default function PembayaranPage() {
   const {
     tableNumber,
     items,
-    total: subtotal, 
+    total: subtotal,
     method,
     setMethod,
     loading,
-    snapReady,
     handleBack,
-    handlePay, 
+    handlePay,
   } = usePaymentLogic();
 
-  // State lokal untuk diskon
   const [discountAmount, setDiscountAmount] = useState(0);
   const [voucherCode, setVoucherCode] = useState("");
 
@@ -75,7 +73,6 @@ export default function PembayaranPage() {
             total={finalTotal}
           />
 
-          {/* Input Voucher */}
           <div className="bg-background/50 p-4 rounded-xl border border-border/50">
             <VoucherInput
               totalAmount={subtotal}
@@ -101,12 +98,8 @@ export default function PembayaranPage() {
           <PaymentAction
             loading={loading}
             method={method}
-            onPay={onPayClicked} 
-            disabled={
-              loading ||
-              items.length === 0 ||
-              (method === "midtrans" && !snapReady && discountAmount === 0)
-            }
+            onPay={onPayClicked}
+            disabled={loading || items.length === 0}
           />
         </div>
       </div>
