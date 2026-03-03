@@ -17,6 +17,7 @@ import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
 import { Card } from "@/components/ui/card";
 import { useState } from "react";
 import { ManualOrderDialog } from "@/components/admin/dashboard/ManualOrderDialog";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 
 
 export default function AdminKasirDashboardClient() {
@@ -56,9 +57,8 @@ export default function AdminKasirDashboardClient() {
     void refresh();
   };
   return (
-    <main className="min-h-screen bg-background relative">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none z-0"></div>
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
 
       <div className="relative z-10 mx-auto max-w-400 p-4 sm:p-6 lg:p-8 space-y-8">
         <DashboardHeader

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import AlertsDropdown from "@/components/admin/AlertsDropdown";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 import DashboardOperationalPanel from "@/components/admin/dashboard/DashboardOperationalPanel";
 import type { ActiveOrder } from "@/lib/admin-services/overview";
 import { DashboardHeader } from "@/components/admin/dashboard/DashboardHeader";
@@ -67,13 +68,8 @@ export default function OwnerDashboardClient() {
   });
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-stone-100 via-amber-50/30 to-stone-100 relative">
-      {/* Decorative Background Elements & Pattern */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-amber-200/20 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-orange-200/20 rounded-full blur-3xl"></div>
-      </div>
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none z-0"></div>
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
 
       <div className="relative z-10 mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8 space-y-8">
         

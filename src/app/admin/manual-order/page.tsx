@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 // Import sub-components
 import { StepIndicator } from "@/components/admin/manual-order/StepIndicator";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 import { StepTableSelection } from "@/components/admin/manual-order/StepTableSelection";
 import { StepMenuSelection } from "@/components/admin/manual-order/StepMenuSelection";
 import { StepOrderConfirmation } from "@/components/admin/manual-order/StepOrderConfirmation";
@@ -64,7 +65,8 @@ export default function ManualOrderPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-stone-100 via-amber-50/30 to-stone-100">
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
       <div className="relative z-10">
         {/* Header */}
         <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-amber-100 shadow-sm">

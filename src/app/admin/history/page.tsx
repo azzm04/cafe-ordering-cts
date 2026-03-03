@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react"; // Tambahkan useEffect & useState
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -70,7 +71,9 @@ export default function AdminHistoryPage() {
   };
 
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-6">
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
+      <div className="relative z-10 mx-auto max-w-6xl p-6 space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -132,6 +135,10 @@ export default function AdminHistoryPage() {
         onNextPage={() => setPage(Math.min(totalPages, filters.page + 1))}
         onDelete={isOwner ? handleDeleteOrder : undefined} 
       />
+
+      </div>
+
+      
     </main>
   );
 }

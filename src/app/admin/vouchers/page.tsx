@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import VoucherManager from "@/components/admin/dashboard/VoucherManager";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 import { requireAdmin } from "@/lib/admin-auth-server"; 
 import { NextResponse } from "next/server";
 
@@ -20,8 +21,9 @@ export default async function VoucherPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-5xl space-y-6">
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
+      <div className="relative z-10 mx-auto max-w-5xl space-y-6 p-4 sm:p-6 lg:p-8">
         
         <div className="flex items-center gap-2 mb-8">
           <Link href="/admin/owner"> 

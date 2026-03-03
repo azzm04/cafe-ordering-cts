@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, startOfMonth, subDays } from "date-fns"; 
 import { HourlyChart } from "@/components/admin/hourly-chart";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
@@ -370,8 +371,9 @@ export default function AdminLaporanClient() {
   };
 
   return (
-    <main className="min-h-screen bg-background pb-10">
-      <div className="mx-auto w-full max-w-7xl px-4 py-6 space-y-6">
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
+      <div className="relative z-10 mx-auto w-full max-w-7xl px-4 py-6 space-y-6 pb-10">
         
         {/* HEADER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -30,7 +30,7 @@ export default function MenuPage() {
     {
       categoryId: CATEGORY[activeTab],
       query,
-    }
+    },
   );
 
   if (tableNumber == null) {
@@ -38,7 +38,9 @@ export default function MenuPage() {
       <main className="relative min-h-screen w-full overflow-x-hidden">
         <BackgroundDecorations />
         <div className="relative z-10 flex min-h-screen items-center justify-center">
-           <p className="text-sm font-medium text-muted-foreground animate-pulse">Mengarahkan ke pilih meja...</p>
+          <p className="text-sm font-medium text-muted-foreground animate-pulse">
+            Mengarahkan ke pilih meja...
+          </p>
         </div>
       </main>
     );
@@ -49,7 +51,6 @@ export default function MenuPage() {
       <BackgroundDecorations />
 
       <div className="relative z-10 container max-w-4xl mx-auto px-4 py-8 sm:py-12 space-y-6">
-        
         <MenuHeader
           tableNumber={tableNumber}
           itemCount={itemCount}
@@ -71,7 +72,6 @@ export default function MenuPage() {
           expandedGroups={expandedGroups}
           onToggleGroup={toggleGroup}
           onAddItem={async (it) => {
-            // --- Logika Add Item (Tetap Sama) ---
             const state = useCartStore.getState();
             const currentItems = state.items.map((x) => ({
               menu_item_id: x.id,
@@ -107,7 +107,8 @@ export default function MenuPage() {
                   });
                 } else {
                   toast.error("Gagal menambah menu", {
-                    description: "Terjadi kesalahan saat mengecek ketersediaan stok.",
+                    description:
+                      "Terjadi kesalahan saat mengecek ketersediaan stok.",
                   });
                 }
                 return;
