@@ -7,10 +7,17 @@ import { useCartStore } from "@/store/cartStore";
 import { useMidtransSnap } from "@/hooks/useMidtransSnap";
 import { useOrder } from "@/hooks/useOrder";
 
-// Note: Definisi Window.snap sudah dipindah ke src/types.d.ts
-// Tidak perlu redeclare di sini.
-
 export type PaymentMethod = "midtrans" | "cash";
+
+// 1. Definisikan tipe response API secara eksplisit
+interface CashApiResponse {
+  message?: string;
+  order?: {
+    order_number: string;
+  };
+  // Fallback support jika format response berbeda
+  orderNumber?: string; 
+}
 
 export function usePaymentLogic() {
   const router = useRouter();
@@ -43,7 +50,7 @@ export function usePaymentLogic() {
   // Actions
   const handleBack = () => router.back();
 
-  const processMidtrans = async () => {
+  const processMidtrans = async (voucherCode?: string) => {
     if (!snapReady)
       throw new Error("Midtrans Snap belum siap. Refresh halaman.");
     if (items.length === 0) throw new Error("Keranjang kosong.");
@@ -52,21 +59,23 @@ export function usePaymentLogic() {
     const { orderNumber, snapToken } = await createTransaction({
       tableNumber,
       items: payloadItems,
+      voucherCode,
     });
 
-    // window.snap sekarang dikenali otomatis dari types.d.ts
-    window.snap.pay(snapToken, {
-      onSuccess: () => {
-        clearCart();
-        router.push(`/nota/${orderNumber}`);
-      },
-      onPending: () => router.push(`/nota/${orderNumber}`),
-      onError: () => router.push(`/nota/${orderNumber}`),
-      onClose: () => router.push(`/nota/${orderNumber}`),
-    });
+    if (window.snap) {
+      window.snap.pay(snapToken, {
+        onSuccess: () => {
+          clearCart();
+          router.push(`/nota/${orderNumber}`);
+        },
+        onPending: () => router.push(`/nota/${orderNumber}`),
+        onError: () => router.push(`/nota/${orderNumber}`),
+        onClose: () => router.push(`/nota/${orderNumber}`)
+      });
+    }
   };
 
-  const processCash = async () => {
+  const processCash = async (voucherCode?: string) => {
     if (items.length === 0) throw new Error("Keranjang kosong.");
     if (!tableNumber) throw new Error("Nomor meja hilang.");
 
@@ -76,36 +85,31 @@ export function usePaymentLogic() {
       body: JSON.stringify({
         tableNumber,
         items: payloadItems,
+        voucherCode,
       }),
     });
 
-    const json: unknown = await res.json();
+    // 2. Parsing JSON dengan Type Assertion (bukan any)
+    const json = (await res.json()) as CashApiResponse;
 
     if (!res.ok) {
-      const msg =
-        typeof json === "object" && json !== null && "message" in json
-          ? String((json as Record<string, unknown>).message)
-          : "Gagal membuat order cash";
-      throw new Error(msg);
+      throw new Error(json.message || "Gagal membuat order cash");
     }
 
-    const orderNumber =
-      typeof json === "object" && json !== null && "orderNumber" in json
-        ? (json as Record<string, unknown>).orderNumber
-        : null;
+    // 3. Ambil data dengan type safe
+    const orderNumber = json.order?.order_number || json.orderNumber;
 
-    if (typeof orderNumber !== "string")
-      throw new Error("Invalid response: orderNumber missing");
+    if (!orderNumber) throw new Error("Invalid response: Order Number missing");
 
     clearCart();
     router.push(`/nota/${orderNumber}`);
   };
 
-  const handlePay = async () => {
+  const handlePay = async (voucherCode?: string) => {
     setLoading(true);
     try {
-      if (method === "midtrans") await processMidtrans();
-      else await processCash();
+      if (method === "midtrans") await processMidtrans(voucherCode);
+      else await processCash(voucherCode);
     } catch (e: unknown) {
       let errorMessage = "Terjadi kesalahan";
 

@@ -1,16 +1,18 @@
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 
-type CashOrderBody = {
+// 1. Tipe Payload Body yang ketat
+type OrderItemPayload = {
+  menu_item_id: string;
+  quantity: number;
+  price: number;
+  notes?: string;
+};
+
+type Body = {
   tableNumber: number;
-  items: Array<{
-    menu_item_id: string;
-    quantity: number;
-    price: number;
-    notes?: string;
-  }>;
+  items: OrderItemPayload[];
+  voucherCode?: string; 
 };
 
 function generateOrderNumber() {
@@ -26,121 +28,141 @@ function generateOrderNumber() {
   return `CTS-${y}${m}${day}-${hh}${mm}${ss}-${rand}`;
 }
 
-function getErrorMessage(err: unknown) {
-  if (err instanceof Error) return err.message;
-  if (typeof err === "string") return err;
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return "Unknown error";
-  }
-}
-
 export async function POST(req: Request) {
+  // Parsing body dengan casting ke tipe Body
+  const body = (await req.json()) as Body;
+
+  if (!body.tableNumber) return NextResponse.json({ message: "tableNumber required" }, { status: 400 });
+  if (!body.items?.length) return NextResponse.json({ message: "items required" }, { status: 400 });
+
+  // 1. CEK STOK (Inventory Check)
   try {
-    const body = (await req.json()) as CashOrderBody;
-
-    if (!body.tableNumber || body.items.length === 0) {
-      return NextResponse.json(
-        { message: "tableNumber & items required" },
-        { status: 400 }
-      );
-    }
-
-    const { data: table, error: tableErr } = await supabaseServer
-      .from("tables")
-      .select("id, status")
-      .eq("table_number", body.tableNumber)
-      .single();
-
-    if (tableErr || !table)
-      return NextResponse.json({ message: "Table not found" }, { status: 404 });
-    if (table.status !== "available")
-      return NextResponse.json(
-        { message: "Table not available" },
-        { status: 409 }
-      );
-
-    // validate requested quantities per menu
-    try {
-      const menuIds = [...new Set(body.items.map((it) => it.menu_item_id))];
-      const { computeMaxPortionsForMenus } = await import("@/lib/inventory/index");
-      const maxMap = await computeMaxPortionsForMenus(menuIds);
-
-      const problems: Array<{ menu_item_id: string; requested: number; maxAvailable: number | null }> = [];
-      for (const it of body.items) {
-        const max = maxMap.get(it.menu_item_id) ?? null;
-        if (typeof max === "number" && it.quantity > max) {
+    const menuIds = [...new Set(body.items.map((it) => it.menu_item_id))];
+    const { computeMaxPortionsForMenus } = await import("@/lib/inventory/index");
+    
+    // Map mengembalikan number | null, bukan any
+    const maxMap = await computeMaxPortionsForMenus(menuIds);
+    
+    const problems: Array<{ menu_item_id: string; requested: number; maxAvailable: number | null }> = [];
+    
+    for (const it of body.items) {
+      const max = maxMap.get(it.menu_item_id) ?? null;
+      if (typeof max === "number") {
+        if (it.quantity > max) {
           problems.push({ menu_item_id: it.menu_item_id, requested: it.quantity, maxAvailable: max });
         }
       }
-
-      if (problems.length > 0) return NextResponse.json({ message: "Stok tidak cukup", items: problems }, { status: 400 });
-    } catch (err) {
-      console.error("cash order: computeMaxPortionsForMenus failed", err);
-      // proceed without strict validation if the check fails
     }
+    if (problems.length > 0) {
+      return NextResponse.json({ message: "Stok tidak cukup", items: problems }, { status: 400 });
+    }
+  } catch (err: unknown) {
+    // Error handling tanpa any
+    const errorMsg = err instanceof Error ? err.message : "Unknown inventory error";
+    console.error("orders: computeMaxPortionsForMenus failed", errorMsg);
+  }
 
-    const total = body.items.reduce(
-      (acc, it) => acc + it.price * it.quantity,
-      0
-    );
-    const orderNumber = generateOrderNumber();
+  // 2. CEK MEJA
+  const { data: table, error: tableErr } = await supabaseServer
+    .from("tables")
+    .select("*")
+    .eq("table_number", body.tableNumber)
+    .single();
 
-    const { data: order, error: orderErr } = await supabaseServer
-      .from("orders")
-      .insert({
-        table_id: table.id,
-        order_number: orderNumber,
-        total_amount: total,
-        payment_status: "pending",
-        payment_method: "cash",
-        midtrans_order_id: null,
-        midtrans_transaction_id: null,
-        completed_at: null,
-        order_status: "received",
-      })
-      .select("id, order_number")
+  if (tableErr || !table) return NextResponse.json({ message: "Table not found" }, { status: 404 });
+  if (table.status !== "available") return NextResponse.json({ message: "Table not available" }, { status: 409 });
+
+  // 3. HITUNG HARGA & VOUCHER
+  const original_amount = body.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+  
+  let discount_amount = 0;
+  let final_amount = original_amount;
+  let validVoucherCode: string | null = null;
+
+  if (body.voucherCode) {
+    const { data: voucher } = await supabaseServer
+      .from("vouchers")
+      .select("*")
+      .eq("code", body.voucherCode.toUpperCase())
+      .eq("is_active", true)
       .single();
 
-    if (orderErr || !order) {
-      return NextResponse.json(
-        { message: orderErr?.message ?? "Create order failed" },
-        { status: 500 }
-      );
+    if (voucher) {
+      // Cek minimal order
+      if (original_amount >= (voucher.min_order_amount || 0)) {
+        if (voucher.type === "percentage") {
+          discount_amount = (original_amount * voucher.value) / 100;
+          if (voucher.max_discount && discount_amount > voucher.max_discount) {
+            discount_amount = voucher.max_discount;
+          }
+        } else {
+          discount_amount = voucher.value;
+        }
+
+        if (discount_amount > original_amount) discount_amount = original_amount;
+        
+        final_amount = original_amount - discount_amount;
+        validVoucherCode = voucher.code;
+      }
     }
-
-    const itemsPayload = body.items.map((it) => ({
-      order_id: order.id,
-      menu_item_id: it.menu_item_id,
-      quantity: it.quantity,
-      price: it.price,
-      subtotal: it.price * it.quantity,
-      notes: it.notes ?? null,
-    }));
-
-    const { error: itemsErr } = await supabaseServer
-      .from("order_items")
-      .insert(itemsPayload);
-    if (itemsErr)
-      return NextResponse.json({ message: itemsErr.message }, { status: 500 });
-
-    // occupy table
-    const { error: occErr } = await supabaseServer
-      .from("tables")
-      .update({ status: "occupied" })
-      .eq("id", table.id);
-    if (occErr)
-      return NextResponse.json(
-        { message: "Failed to occupy table", details: occErr.message },
-        { status: 500 }
-      );
-
-    return NextResponse.json({ orderNumber: order.order_number });
-  } catch (e: unknown) {
-    return NextResponse.json(
-      { message: "Server crash", details: getErrorMessage(e) },
-      { status: 500 }
-    );
   }
+
+  const order_number = generateOrderNumber();
+
+  // 4. INSERT ORDER
+  // Pastikan table Supabase Anda sesuai dengan kolom ini
+  const { data: order, error: orderErr } = await supabaseServer
+    .from("orders")
+    .insert({
+      table_id: table.id,
+      order_number,
+      original_amount: original_amount,
+      discount_amount: discount_amount,
+      total_amount: final_amount, 
+      voucher_code: validVoucherCode,
+      
+      payment_method: "cash", 
+      payment_status: "pending",
+      fulfillment_status: "received", 
+      order_status: "received", 
+    })
+    .select("*")
+    .single();
+
+  if (orderErr || !order) return NextResponse.json({ message: orderErr?.message ?? "Failed create order" }, { status: 500 });
+
+  // 5. INSERT ORDER ITEMS
+  const orderItemsPayload = body.items.map((it) => ({
+    order_id: order.id,
+    menu_item_id: it.menu_item_id,
+    quantity: it.quantity,
+    price: it.price,
+    subtotal: it.price * it.quantity,
+    notes: it.notes ?? null,
+  }));
+
+  const { error: itemsErr } = await supabaseServer.from("order_items").insert(orderItemsPayload);
+  
+  if (itemsErr) {
+    await supabaseServer.from("orders").delete().eq("id", order.id);
+    return NextResponse.json({ message: "Gagal menyimpan item order: " + itemsErr.message }, { status: 500 });
+  }
+
+  // 6. UPDATE STATUS MEJA
+  await supabaseServer.from("tables").update({ status: "occupied" }).eq("id", table.id);
+
+  // 7. KURANGI STOK (DECREMENT STOCK)
+  try {
+    for (const item of body.items) {
+      await supabaseServer.rpc("decrement_stock", {
+        menu_id: item.menu_item_id,
+        qty: item.quantity,
+      });
+    }
+  } catch (stockErr: unknown) {
+    const msg = stockErr instanceof Error ? stockErr.message : "Unknown RPC Error";
+    console.error("Error decrementing stock:", msg);
+  }
+
+  return NextResponse.json({ order });
 }

@@ -1,6 +1,4 @@
-// admin/kasir/ui.tsx
 "use client";
-
 import { toast } from "sonner";
 import { useAdminOverview } from "@/hooks/useAdminOverview";
 import { DashboardHeader } from "@/components/admin/dashboard/DashboardHeader";
@@ -10,15 +8,34 @@ import { OrderReceivedCard } from "@/components/admin/dashboard/OrderReceivedCar
 import { OrderPreparingCard } from "@/components/admin/dashboard/OrderPreparingCard";
 import { OrderServedCard } from "@/components/admin/dashboard/OrderServedCard";
 import { DashboardAutoRefresh } from "@/components/admin/dashboard/DashboardAutoRefresh";
-import { confirmCashOrder, completeOrder, updateFulfillmentStatus } from "@/lib/admin-services/orders";
+import {
+  confirmCashOrder,
+  completeOrder,
+  updateFulfillmentStatus,
+} from "@/lib/admin-services/orders";
 import { useAutoCancelExpiredOrders } from "@/hooks/useAutoCancelExpiredOrders";
+import { Card } from "@/components/ui/card";
+import { useState } from "react";
+import { ManualOrderDialog } from "@/components/admin/dashboard/ManualOrderDialog";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
+
 
 export default function AdminKasirDashboardClient() {
-  const { tables, loading, refresh, cashPending, receivedPaid, preparing, activeServed } = useAdminOverview();
+  const {
+    tables,
+    loading,
+    refresh,
+    cashPending,
+    receivedPaid,
+    preparing,
+    activeServed,
+  } = useAdminOverview();
+    const [manualOrderOpen, setManualOrderOpen] = useState(false);
+  
 
   useAutoCancelExpiredOrders({
     enabled: true,
-    intervalMs: 15 * 60 * 1000, // Cek setiap 15 menit
+    intervalMs: 15 * 60 * 1000,
     onSuccess: (result) => {
       if (result.cancelled > 0) {
         toast.warning(
@@ -26,7 +43,7 @@ export default function AdminKasirDashboardClient() {
           {
             description: `Order: ${result.orders.join(", ")}`,
             duration: 5000,
-          }
+          },
         );
         void refresh();
       }
@@ -36,74 +53,107 @@ export default function AdminKasirDashboardClient() {
     },
   });
 
+  const handleManualOrderCreated = () => {
+    void refresh();
+  };
   return (
-    <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6 lg:space-y-8">
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
+
+      <div className="relative z-10 mx-auto max-w-400 p-4 sm:p-6 lg:p-8 space-y-8">
         <DashboardHeader
-          title="Dashboard Kasir"
-          subtitle="Kelola meja, pantau order, dan proses pembayaran"
+            title="Dashboard Kasir"
+            onRefresh={refresh}
+            loading={loading}
+            showManualOrder={true}
+          />
+
+        <DashboardAutoRefresh
+          intervalMs={5000}
+          enabled={true}
           onRefresh={refresh}
-          loading={loading}
         />
 
-        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 rounded-lg border border-border/50">
-          <DashboardAutoRefresh intervalMs={5000} enabled={true} onRefresh={refresh} />
+        <section className="space-y-4">
+          <TablesCard tables={tables} />
+        </section>
+
+        {/* Workflow Section */}
+        <div className="grid gap-8">
+          {/* 1. Pembayaran & Order Masuk */}
+          {(cashPending.length > 0 || receivedPaid.length > 0) && (
+            <div className="grid lg:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <CashPendingCard
+                items={cashPending}
+                onConfirm={async (orderNumber) => {
+                  try {
+                    await confirmCashOrder(orderNumber);
+                    toast.success("Pembayaran tunai berhasil dikonfirmasi");
+                    await refresh();
+                  } catch (e: unknown) {
+                    toast.error(
+                      e instanceof Error ? e.message : "Gagal konfirmasi",
+                    );
+                  }
+                }}
+              />
+
+              <OrderReceivedCard
+                items={receivedPaid}
+                onSetStatus={async (orderId, status) => {
+                  try {
+                    await updateFulfillmentStatus(orderId, status);
+                    toast.success("Order masuk ke dapur");
+                    await refresh();
+                  } catch (e: unknown) {
+                    toast.error(
+                      e instanceof Error ? e.message : "Gagal update status",
+                    );
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {/* 2. Proses Dapur */}
+          <OrderPreparingCard
+            items={preparing}
+            onSetStatus={async (orderId, status) => {
+              try {
+                await updateFulfillmentStatus(orderId, status);
+                toast.success("Makanan siap disajikan");
+                await refresh();
+              } catch (e: unknown) {
+                toast.error(
+                  e instanceof Error ? e.message : "Gagal update status",
+                );
+              }
+            }}
+          />
+
+          {/* 3. Selesai / Disajikan */}
+          <OrderServedCard
+            items={activeServed}
+            onComplete={async (orderNumber) => {
+              try {
+                await completeOrder(orderNumber);
+                toast.success("Order selesai, meja kembali kosong");
+                await refresh();
+              } catch (e: unknown) {
+                toast.error(
+                  e instanceof Error ? e.message : "Gagal menyelesaikan order",
+                );
+              }
+            }}
+          />
         </div>
-
-        <TablesCard tables={tables} />
-
-        <CashPendingCard
-          items={cashPending}
-          onConfirm={async (orderNumber) => {
-            try {
-              await confirmCashOrder(orderNumber);
-              toast.success("Tunai dikonfirmasi (paid)");
-              await refresh();
-            } catch (e: unknown) {
-              toast.error(e instanceof Error ? e.message : "Error");
-            }
-          }}
-        />
-
-        <OrderReceivedCard
-          items={receivedPaid}
-          onSetStatus={async (orderId, status) => {
-            try {
-              await updateFulfillmentStatus(orderId, status);
-              toast.success("Status order berhasil diupdate");
-              await refresh();
-            } catch (e: unknown) {
-              toast.error(e instanceof Error ? e.message : "Error");
-            }
-          }}
-        />
-
-        <OrderPreparingCard
-          items={preparing}
-          onSetStatus={async (orderId, status) => {
-            try {
-              await updateFulfillmentStatus(orderId, status);
-              toast.success("Status order berhasil diupdate");
-              await refresh();
-            } catch (e: unknown) {
-              toast.error(e instanceof Error ? e.message : "Error");
-            }
-          }}
-        />
-
-        <OrderServedCard
-          items={activeServed}
-          onComplete={async (orderNumber) => {
-            try {
-              await completeOrder(orderNumber);
-              toast.success("Order selesai, meja dilepas");
-              await refresh();
-            } catch (e: unknown) {
-              toast.error(e instanceof Error ? e.message : "Error");
-            }
-          }}
-        />
       </div>
+      <ManualOrderDialog
+              open={manualOrderOpen}
+              onOpenChange={setManualOrderOpen}
+              tables={tables}
+              onOrderCreated={handleManualOrderCreated}
+            />
     </main>
   );
 }

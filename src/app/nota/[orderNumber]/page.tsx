@@ -2,7 +2,10 @@
 
 import { notFound } from "next/navigation";
 import { getNotaData } from "@/services/nota/getNotaData";
-import { deriveEffectiveFulfillmentStatus, isCashPending } from "@/lib/nota/status";
+import {
+  deriveEffectiveFulfillmentStatus,
+  isCashPending,
+} from "@/lib/nota/status";
 import BackgroundDecorations from "@/components/shared/BackgroundDecorations"; // Pastikan path ini benar
 
 import NotaHeader from "@/components/nota/NotaHeader";
@@ -14,7 +17,11 @@ export const dynamic = "force-dynamic";
 
 type Params = { orderNumber: string };
 
-export default async function NotaPage({ params }: { params: Promise<Params> }) {
+export default async function NotaPage({
+  params,
+}: {
+  params: Promise<Params>;
+}) {
   const { orderNumber } = await params;
 
   const data = await getNotaData(orderNumber);
@@ -41,7 +48,6 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
       <BackgroundDecorations />
 
       <div className="relative z-10 mx-auto min-h-screen flex flex-col max-w-md md:max-w-2xl px-4 py-8 sm:py-12">
-        
         {/* Header Section */}
         <NotaHeader
           orderNumber={order.order_number}
@@ -63,6 +69,9 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
           effectiveFulfillmentStatus={effectiveFulfillmentStatus}
           items={items}
           totalAmount={order.total_amount}
+          originalAmount={order.original_amount} 
+          discountAmount={order.discount_amount} 
+          voucherCode={order.voucher_code} 
         />
 
         {/* Action Buttons */}
@@ -75,7 +84,6 @@ export default async function NotaPage({ params }: { params: Promise<Params> }) 
             paymentMethod={order.payment_method}
           />
         </div>
-
       </div>
     </main>
   );

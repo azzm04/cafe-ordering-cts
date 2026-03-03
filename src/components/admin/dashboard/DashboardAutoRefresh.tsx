@@ -1,111 +1,113 @@
-// src/components/admin/DashboardAutoRefresh.tsx
 "use client";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Activity, Pause, Play, RefreshCw } from "lucide-react";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-
-type Props = {
-  intervalMs?: number;
-  enabled?: boolean;
-  onRefresh: () => void | Promise<void>;
-};
-
-function pad2(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-function formatTimeHHmmss(d: Date) {
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+interface DashboardAutoRefreshProps {
+  intervalMs: number;
+  enabled: boolean;
+  onRefresh: () => void;
 }
 
 export function DashboardAutoRefresh({
-  intervalMs = 5000,
-  enabled = true,
+  intervalMs,
+  enabled: initialEnabled,
   onRefresh,
-}: Props) {
-  const [lastCheck, setLastCheck] = useState<string>(() =>
-    formatTimeHHmmss(new Date())
-  );
-  
-  const [isStopped, setIsStopped] = useState(!enabled);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+}: DashboardAutoRefreshProps) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [countdown, setCountdown] = useState(Math.floor(intervalMs / 1000));
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
-  const refreshData = useCallback(async () => {
-    if (isStopped || isPaused || isRefreshing) return;
-
-    try {
-      setIsRefreshing(true);
-      await onRefresh();
-      setLastCheck(formatTimeHHmmss(new Date()));
-    } catch (error) {
-      console.error("Auto refresh error:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [onRefresh, isStopped, isPaused, isRefreshing]);
+  const doRefresh = useCallback(() => {
+    onRefresh();
+    setLastRefresh(new Date());
+    setCountdown(Math.floor(intervalMs / 1000));
+  }, [onRefresh, intervalMs]);
 
   useEffect(() => {
-    if (isStopped || isPaused) return;
+    if (enabled) {
+      intervalRef.current = setInterval(doRefresh, intervalMs);
+      countdownRef.current = setInterval(() => {
+        setCountdown((prev) =>
+          prev > 0 ? prev - 1 : Math.floor(intervalMs / 1000),
+        );
+      }, 1000);
+    }
 
-    const intervalId = setInterval(() => {
-      if (!isStopped && !isPaused && !isRefreshing) {
-        void refreshData();
-      }
-    }, intervalMs);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [enabled, intervalMs, doRefresh]);
 
-    return () => clearInterval(intervalId);
-  }, [intervalMs, refreshData, isStopped, isPaused, isRefreshing]);
-
-  const togglePause = () => {
-    setIsPaused((prev) => !prev);
-  };
-
-  const stop = () => {
-    setIsStopped(true);
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
   };
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="text-xs text-muted-foreground flex items-center gap-2">
-        <span
-          className={`inline-block w-2 h-2 rounded-full transition-colors duration-300 ${
-            isStopped 
-              ? "bg-muted-foreground/40" 
-              : isPaused 
-              ? "bg-amber-500" 
-              : isRefreshing
-              ? "bg-blue-500 animate-pulse"
-              : "bg-emerald-500 animate-pulse"
-          }`}
-        />
-        <span>
-          {isStopped 
-            ? "Auto refresh dimatikan" 
-            : isPaused 
-            ? "Auto refresh dijeda" 
-            : isRefreshing
-            ? "Memuat data..."
-            : "Auto refresh aktif"} · Cek terakhir {lastCheck}
-        </span>
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 w-full">
+      <div className="flex items-center gap-3">
+        <div className={`relative flex items-center justify-center w-3 h-3`}>
+          <span
+            className={`absolute inline-flex h-full w-full rounded-full ${enabled ? "bg-emerald-400 animate-ping" : "bg-gray-400"} opacity-75`}
+          ></span>
+          <span
+            className={`relative inline-flex rounded-full h-2 w-2 ${enabled ? "bg-emerald-500" : "bg-gray-500"}`}
+          ></span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-gray-700">
+            {enabled ? "Auto refresh aktif" : "Auto refresh nonaktif"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            • Cek terakhir {formatTime(lastRefresh)}
+          </span>
+          {enabled && (
+            <Badge variant="secondary" className="text-xs font-mono">
+              <RefreshCw className="w-3 h-3 mr-1" />
+              {countdown}s
+            </Badge>
+          )}
+        </div>
       </div>
 
-      {!isStopped && (
-        <button
-          onClick={togglePause}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setEnabled(!enabled)}
+          className={`text-xs ${enabled ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"}`}
         >
-          {isPaused ? "Lanjutkan" : "Jeda"}
-        </button>
-      )}
-
-      {!isStopped && (
-        <button
-          onClick={stop}
-          className="text-xs text-destructive hover:text-destructive/80 transition-colors underline"
+          {enabled ? (
+            <>
+              <Pause className="w-3 h-3 mr-1" />
+              Jeda
+            </>
+          ) : (
+            <>
+              <Play className="w-3 h-3 mr-1" />
+              Aktifkan
+            </>
+          )}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setEnabled(false)}
+          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+          disabled={!enabled}
         >
+          <Activity className="w-3 h-3 mr-1" />
           Matikan
-        </button>
-      )}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { getAdminCookieName } from "@/lib/admin-auth";
 import { Button } from "@/components/ui/button";
 import IngredientsList from "@/components/admin/IngredientsList";
 import { Plus, ChevronLeft } from "lucide-react"; // Pastikan install lucide-react
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 
 export const dynamic = "force-dynamic";
 
@@ -60,33 +61,35 @@ export default async function IngredientsPage({
   const data = await getIngredients(q, status);
 
   return (
-    <main className="p-4 sm:p-8 space-y-8 bg-muted/10 min-h-screen">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Bahan Baku</h1>
-          <p className="text-muted-foreground">
-            Kelola stok inventory, monitoring, dan restock bahan.
-          </p>
-        </div>
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
+      <div className="relative z-10 p-4 sm:p-8 space-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Bahan Baku</h1>
+            <p className="text-muted-foreground">
+              Kelola stok inventory, monitoring, dan restock bahan.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Link href="/admin/menu">
-            <Button variant="outline" size="sm" className="h-9">
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Menu
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/admin/menu">
+              <Button variant="outline" size="sm" className="h-9">
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Menu
+              </Button>
+            </Link>
 
-          <Link href="/admin/ingredients/add">
-            <Button size="sm" className="h-9 shadow-sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Tambah Bahan
-            </Button>
-          </Link>
+            <Link href="/admin/ingredients/add">
+              <Button size="sm" className="h-9 shadow-sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Tambah Bahan
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
-
       {/* Main Content */}
       <IngredientsList initialItems={data.items} initialQ={q} initialStatus={status} />
     </main>

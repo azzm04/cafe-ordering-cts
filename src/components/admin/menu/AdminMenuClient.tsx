@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -10,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import type { AdminRole, Category, MenuItemRow } from "@/types/admin/menu";
 import { fetchAdminMe, fetchCategories, fetchMenuItems, apiArchiveMenu, apiUpdateMenu } from "@/services/admin/menu";
 import MenuHeaderActions from "@/components/admin/menu/MenuHeaderActions";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 import MenuGrid from "@/components/admin/menu/MenuGrid";
 import MenuDialogs from "@/components/admin/menu/MenuDialogs";
 
@@ -108,8 +108,10 @@ export default function AdminMenuClient() {
   };
 
   return (
-    <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
+
+      <div className="relative z-10 mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
         <MenuHeaderActions
           loading={loading}
           onRefresh={load}

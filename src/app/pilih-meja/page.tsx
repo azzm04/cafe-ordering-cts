@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, memo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import type { Table } from "@/types";
+import type { Table } from "@/types/index";
 import { useCartStore } from "@/store/cartStore";
 import { TableSelector } from "@/components/TableSelector";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export default function PilihMejaPage() {
     void loadTables();
   }, [loadTables]);
 
-  const availableCount = tables.filter((t) => t.status === "available").length;
+  const availableCount = tables.filter((t) => t.status === "tersedia").length;
 
   return (
     <main className="relative min-h-screen w-full overflow-x-hidden">
@@ -121,10 +121,6 @@ export default function PilihMejaPage() {
                 }}
               />
 
-              <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground pt-4">
-                <ChevronRight className="w-4 h-4" />
-                <span>Pilih meja berwarna hijau untuk melanjutkan</span>
-              </div>
             </div>
           )}
         </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ShoppingBag, Utensils } from "lucide-react";
 import { useCartLogic } from "@/hooks/useCartLogic";

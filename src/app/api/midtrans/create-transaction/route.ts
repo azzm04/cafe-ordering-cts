@@ -15,6 +15,7 @@ type CreateTransactionBody = {
     price: number;
     notes?: string;
   }>;
+  voucherCode?: string; 
 };
 
 type MidtransItemDetail = {
@@ -83,7 +84,6 @@ export async function POST(req: Request) {
       return jsonNoStore({ message: "tableNumber & items required" }, { status: 400 });
     }
 
-    // cek meja
     const { data: table, error: tableErr } = await supabaseAdmin
       .from("tables")
       .select("id, status, table_number")
@@ -92,15 +92,46 @@ export async function POST(req: Request) {
 
     if (tableErr || !table) return jsonNoStore({ message: "Table not found" }, { status: 404 });
 
-    // kalau sudah occupied (misal order belum selesai), blok
     if (table.status !== "available") {
       return jsonNoStore({ message: "Table not available" }, { status: 409 });
     }
 
-    const totalAmount = body.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+    const originalAmount = body.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+    
+    //  Logic Voucher
+    let discountAmount = 0;
+    let finalAmount = originalAmount;
+    let validVoucherCode = null;
+
+    if (body.voucherCode) {
+      const { data: voucher } = await supabaseAdmin
+        .from("vouchers")
+        .select("*")
+        .eq("code", body.voucherCode.toUpperCase())
+        .eq("is_active", true)
+        .single();
+
+      if (voucher) {
+        if (originalAmount >= (voucher.min_order_amount || 0)) {
+          if (voucher.type === "percentage") {
+            discountAmount = (originalAmount * voucher.value) / 100;
+            if (voucher.max_discount && discountAmount > voucher.max_discount) {
+              discountAmount = voucher.max_discount;
+            }
+          } else {
+            discountAmount = voucher.value;
+          }
+
+          if (discountAmount > originalAmount) discountAmount = originalAmount;
+          finalAmount = originalAmount - discountAmount;
+          validVoucherCode = voucher.code;
+        }
+      }
+    }
+
     const orderNumber = generateOrderNumber();
 
-    // validate requested quantities per menu
+    // Validasi Stok Inventory (Optional but Recommended)
     try {
       const menuIds = [...new Set(body.items.map((it) => it.menu_item_id))];
       const { computeMaxPortionsForMenus } = await import("@/lib/inventory/index");
@@ -116,19 +147,21 @@ export async function POST(req: Request) {
 
       if (problems.length > 0) return jsonNoStore({ message: "Stok tidak cukup", items: problems }, { status: 400 });
     } catch (err) {
-      console.error("midtrans:create-transaction: computeMaxPortionsForMenus failed", err);
-      // proceed without blocking if checker fails
+      console.error("midtrans:create-transaction: inventory check failed", err);
     }
 
-    // create order
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
       .insert({
         table_id: table.id,
         order_number: orderNumber,
-        total_amount: totalAmount,
+        original_amount: originalAmount,
+        discount_amount: discountAmount,
+        total_amount: finalAmount, 
+        voucher_code: validVoucherCode,
+        
         payment_status: "pending",
-        payment_method: "online",
+        payment_method: "online", 
         midtrans_order_id: orderNumber,
         fulfillment_status: "received",
       })
@@ -139,7 +172,7 @@ export async function POST(req: Request) {
       return jsonNoStore({ message: orderErr?.message ?? "Failed create order" }, { status: 500 });
     }
 
-    // insert order items
+    // Insert Order Items
     const orderItemsPayload = body.items.map((it) => ({
       order_id: order.id,
       menu_item_id: it.menu_item_id,
@@ -152,7 +185,6 @@ export async function POST(req: Request) {
     const { error: itemsErr } = await supabaseAdmin.from("order_items").insert(orderItemsPayload);
     if (itemsErr) return jsonNoStore({ message: itemsErr.message }, { status: 500 });
 
-    // lock meja jadi occupied
     const { error: lockErr } = await supabaseAdmin
       .from("tables")
       .update({ status: "occupied" })
@@ -160,22 +192,32 @@ export async function POST(req: Request) {
 
     if (lockErr) return jsonNoStore({ message: lockErr.message }, { status: 500 });
 
-    // create midtrans transaction
+    // Create Midtrans Transaction
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+    const midtransItems: MidtransItemDetail[] = body.items.map((it) => ({
+      id: it.menu_item_id,
+      price: it.price,
+      quantity: it.quantity,
+      name: it.name.slice(0, 50),
+    }));
+
+    // Jika ada diskon, tambahkan item negatif agar totalnya cocok
+    if (discountAmount > 0) {
+      midtransItems.push({
+        id: "DISCOUNT-VOUCHER",
+        price: -discountAmount, // Negatif agar mengurangi total
+        quantity: 1,
+        name: `Voucher: ${validVoucherCode}`,
+      });
+    }
 
     const params: MidtransTransactionParams = {
       transaction_details: {
         order_id: order.order_number,
-        gross_amount: totalAmount,
+        gross_amount: finalAmount, // Harga setelah diskon
       },
-      item_details: body.items.map(
-        (it): MidtransItemDetail => ({
-          id: it.menu_item_id,
-          price: it.price,
-          quantity: it.quantity,
-          name: it.name.slice(0, 50),
-        })
-      ),
+      item_details: midtransItems,
       callbacks: {
         finish: `${appUrl}/nota/${order.order_number}`,
       },
@@ -187,7 +229,6 @@ export async function POST(req: Request) {
       return jsonNoStore({ message: "Failed to get token/redirect_url from Midtrans" }, { status: 500 });
     }
 
-    // simpan token + redirect_url ke DB
     const { error: saveErr } = await supabaseAdmin
       .from("orders")
       .update({

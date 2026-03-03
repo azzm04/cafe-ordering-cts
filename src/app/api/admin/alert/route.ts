@@ -106,6 +106,10 @@ export async function GET() {
       };
     });
 
+  // Hitung severity
+  const outOfStockItems = items.filter((i) => i.alert_type === "out_of_stock");
+  const lowStockItems = items.filter((i) => i.alert_type === "low_stock");
+
   // --- Menu-level alerts: identify menu items that are affected by low/out ingredient stock
   type MenuRecipeRow = {
     quantity_needed: number | string;
@@ -177,10 +181,36 @@ export async function GET() {
         id: m.id,
         name: m.name,
         status: anyOut ? "out_of_stock" : "low_stock",
-        ingredients: ingList,
+        ingredients: ingList.filter((i) => i.current_stock <= 0 || i.current_stock <= i.min_stock),
       };
     })
     .filter((x): x is MenuAlert => x !== null);
 
-  return jsonNoStore({ count: items.length + menuAlerts.length, items, menuAlerts });
+  // Pisahkan menu berdasarkan status
+  const menuOutOfStock = menuAlerts.filter((m) => m.status === "out_of_stock");
+  const menuLowStock = menuAlerts.filter((m) => m.status === "low_stock");
+
+  return jsonNoStore({ 
+    // Total count bahan baku untuk badge
+    count: items.length,
+    
+    // Severity counts
+    outOfStockCount: outOfStockItems.length,
+    lowStockCount: lowStockItems.length,
+    
+    // Bahan baku grouped by severity
+    outOfStockItems,
+    lowStockItems,
+    
+    // Legacy: all items (untuk backward compatibility)
+    items,
+    
+    // Menu alerts dengan grouping
+    menuAlerts,
+    menuOutOfStockCount: menuOutOfStock.length,
+    menuLowStockCount: menuLowStock.length,
+    
+    // Flag untuk severity badge color
+    hasUrgent: outOfStockItems.length > 0,
+  });
 }

@@ -20,7 +20,7 @@ export interface MenuItem {
 export interface Table {
   id: string;
   table_number: number;
-  status: "available" | "occupied" | "reserved";
+  status: "tersedia" | "terisi" | "dipesan"; 
   created_at: string;
 }
 

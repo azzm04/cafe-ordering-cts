@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import BackgroundDecorations from "@/components/shared/BackgroundDecorations";
 import { Input } from "@/components/ui/input";
 import { formatRupiah } from "@/lib/utils";
 
@@ -127,8 +128,9 @@ export default function AdminArchivedMenuPage() {
   }, [groupedItems]);
 
   return (
-    <main className="min-h-screen bg-background p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <main className="relative min-h-screen w-full overflow-x-hidden">
+      <BackgroundDecorations />
+      <div className="relative z-10 mx-auto max-w-7xl space-y-6 p-4 sm:p-6 lg:p-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>

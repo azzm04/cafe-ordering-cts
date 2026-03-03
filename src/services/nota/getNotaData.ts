@@ -5,7 +5,20 @@ export async function getNotaData(orderNumber: string): Promise<NotaData | null>
   const { data: order, error: orderErr } = await supabaseServer
     .from("orders")
     .select(
-      "id, order_number, total_amount, payment_status, payment_method, fulfillment_status, created_at, completed_at, tables(table_number)"
+      `
+      id, 
+      order_number, 
+      total_amount, 
+      original_amount,   
+      discount_amount,   
+      voucher_code,      
+      payment_status, 
+      payment_method, 
+      fulfillment_status, 
+      created_at, 
+      completed_at, 
+      tables(table_number)
+      `
     )
     .eq("order_number", orderNumber)
     .single<OrderWithTable>();
