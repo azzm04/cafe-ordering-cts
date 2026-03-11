@@ -236,16 +236,18 @@ export async function POST(req: NextRequest) {
       .update({ status: "terisi" })
       .eq("id", body.table_id);
 
-    // Update stock for each menu item
-    for (const item of body.items) {
-      try {
-        await supabase.rpc("decrement_stock", {
-          menu_id: item.menu_id,
-          qty: item.quantity,
-        });
-      } catch (stockError) {
-        console.error("[manual-order] Stock update error:", stockError);
-      }
+    // Update stock for each menu item, using helper instead of RPC
+    try {
+      const { deductStockForOrder } = await import("@/lib/inventory/index");
+      await deductStockForOrder(order.id);
+
+      // mark deduction as done
+      await supabase
+        .from("orders")
+        .update({ stock_deducted_at: new Date().toISOString() })
+        .eq("id", order.id);
+    } catch (stockError) {
+      console.error("[manual-order] Stock deduction error:", stockError);
     }
 
     // Return response

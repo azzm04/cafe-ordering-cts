@@ -21,6 +21,7 @@ export interface CreatePaymentParams {
   buyerName: string;
   buyerEmail: string;
   redirectUrl: string;
+  callbackUrl?: string;
 }
 
 export interface CreatePaymentResult {
@@ -115,7 +116,7 @@ async function mayarFetch<T>(
 export async function createMayarPayment(
   params: CreatePaymentParams
 ): Promise<CreatePaymentResult> {
-  const payload = {
+  const payload: Record<string, unknown> = {
     name: params.buyerName,
     email: params.buyerEmail,
     mobile: "08000000000",
@@ -123,6 +124,11 @@ export async function createMayarPayment(
     description: `Order ${params.orderNumber}`,
     redirectUrl: params.redirectUrl,
   };
+
+  // Tambahkan callbackUrl jika disediakan
+  if (params.callbackUrl) {
+    payload.callbackUrl = params.callbackUrl;
+  }
 
   console.log("[Mayar] POST /hl/v1/payment/create", payload);
 

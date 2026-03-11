@@ -151,17 +151,20 @@ export async function POST(req: Request) {
   // 6. UPDATE STATUS MEJA
   await supabaseServer.from("tables").update({ status: "occupied" }).eq("id", table.id);
 
-  // 7. KURANGI STOK (DECREMENT STOCK)
+  // 7. KURANGI STOK (gunakan helper, bukan RPC yang kadang tidak ada)
   try {
-    for (const item of body.items) {
-      await supabaseServer.rpc("decrement_stock", {
-        menu_id: item.menu_item_id,
-        qty: item.quantity,
-      });
-    }
+    // helper akan otomatis menyesuaikan ingredient stok
+    const { deductStockForOrder } = await import("@/lib/inventory/index");
+    await deductStockForOrder(order.id);
+
+    // tandai sudah dikurangi untuk mencegah duplikasi
+    await supabaseServer
+      .from("orders")
+      .update({ stock_deducted_at: new Date().toISOString() })
+      .eq("id", order.id);
   } catch (stockErr: unknown) {
-    const msg = stockErr instanceof Error ? stockErr.message : "Unknown RPC Error";
-    console.error("Error decrementing stock:", msg);
+    const msg = stockErr instanceof Error ? stockErr.message : "Unknown error";
+    console.error("Error deducting stock via helper:", msg);
   }
 
   return NextResponse.json({ order });

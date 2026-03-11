@@ -4,6 +4,8 @@ import { assertPositive, toNumber } from "./utils";
 import { updateMenuAvailabilityForIngredient } from "./availability"; // Import dari file availability
 
 export async function deductStockForOrder(orderId: string) {
+  console.log(`[deductStockForOrder] Starting for order ${orderId}`);
+  
   const { data: items, error: itemsErr } = await supabaseAdmin
     .from("order_items")
     .select("menu_item_id, quantity")
@@ -11,13 +13,20 @@ export async function deductStockForOrder(orderId: string) {
     .returns<OrderItemRow[]>();
 
   if (itemsErr) throw new Error(itemsErr.message);
-  if (!items || items.length === 0) return;
+  if (!items || items.length === 0) {
+    console.log(`[deductStockForOrder] No order items found for order ${orderId}`);
+    return;
+  }
+
+  console.log(`[deductStockForOrder] Found ${items.length} order items for order ${orderId}`);
 
   const neededMap = new Map<string, number>();
 
   for (const it of items) {
     const qtyMenu = toNumber(it.quantity);
     assertPositive(qtyMenu, "Invalid order item quantity");
+
+    console.log(`[deductStockForOrder] Processing menu_item_id=${it.menu_item_id}, quantity=${qtyMenu}`);
 
     const { data: recipe, error: recipeErr } = await supabaseAdmin
       .from("menu_recipes")
@@ -27,19 +36,27 @@ export async function deductStockForOrder(orderId: string) {
 
     if (recipeErr) throw new Error(recipeErr.message);
     if (!recipe || recipe.length === 0) {
-      console.warn(`[stock] skip deduction: menu_item_id=${it.menu_item_id} belum punya resep`);
+      console.warn(`[deductStockForOrder] skip deduction: menu_item_id=${it.menu_item_id} belum punya resep`);
       continue;
     }
+
+    console.log(`[deductStockForOrder] Found ${recipe.length} recipe items for menu_item_id=${it.menu_item_id}`);
 
     for (const r of recipe) {
       const qtyNeedPerPortion = toNumber(r.quantity_needed);
       assertPositive(qtyNeedPerPortion, "Invalid recipe quantity_needed");
       const totalNeed = qtyNeedPerPortion * qtyMenu;
       neededMap.set(r.ingredient_id, (neededMap.get(r.ingredient_id) ?? 0) + totalNeed);
+      console.log(`[deductStockForOrder] ingredient_id=${r.ingredient_id}: need ${totalNeed} units (${qtyNeedPerPortion} per portion × ${qtyMenu} portions)`);
     }
   }
 
-  if (neededMap.size === 0) return;
+  if (neededMap.size === 0) {
+    console.log(`[deductStockForOrder] No ingredients need to be deducted`);
+    return;
+  }
+
+  console.log(`[deductStockForOrder] Total ingredients to deduct: ${neededMap.size}`);
 
   for (const [ingredientId, qtyNeed] of neededMap.entries()) {
     const { data: ing, error: ingErr } = await supabaseAdmin
@@ -53,6 +70,8 @@ export async function deductStockForOrder(orderId: string) {
     const before = toNumber(ing.current_stock);
     const after = before - qtyNeed;
 
+    console.log(`[deductStockForOrder] ingredient_id=${ingredientId}: ${before} - ${qtyNeed} = ${after}`);
+
     if (after < 0) {
       throw new Error(`Stock tidak cukup untuk ingredient_id=${ingredientId}. Stock=${before}, butuh=${qtyNeed}`);
     }
@@ -63,6 +82,7 @@ export async function deductStockForOrder(orderId: string) {
       .eq("id", ingredientId);
 
     if (updErr) throw new Error(updErr.message);
+    console.log(`[deductStockForOrder] ✓ Updated ingredient_id=${ingredientId} stock: ${before} → ${after}`);
 
     const { error: mvErr } = await supabaseAdmin.from("stock_movements").insert({
       ingredient_id: ingredientId,
@@ -83,4 +103,6 @@ export async function deductStockForOrder(orderId: string) {
       console.error("updateMenuAvailabilityForIngredient failed", err);
     }
   }
+
+  console.log(`[deductStockForOrder] ✓ Completed for order ${orderId}`);
 }

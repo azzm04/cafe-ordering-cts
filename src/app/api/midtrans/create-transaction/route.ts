@@ -192,7 +192,8 @@ export async function POST(req: Request) {
 
     if (lockErr) return jsonNoStore({ message: lockErr.message }, { status: 500 });
 
-    // Create Midtrans Transaction
+    // Create Midtrans Transaction (Stock akan dikurangi saat webhook konfirmasi pembayaran)
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
     const midtransItems: MidtransItemDetail[] = body.items.map((it) => ({
