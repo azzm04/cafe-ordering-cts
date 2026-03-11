@@ -55,8 +55,11 @@ export function useHistory() {
     if (filters.paymentStatus !== "all")
       parts.push(`Pay: ${filters.paymentStatus}`);
     if (filters.orderStatus !== "all") parts.push(`Status: ${filters.orderStatus}`);
-    if (filters.paymentMethod !== "all")
-      parts.push(`Metode: ${filters.paymentMethod}`);
+    if (filters.paymentMethod !== "all") {
+      const pm = filters.paymentMethod;
+      const display = pm === "online" ? "Online" : pm;
+      parts.push(`Metode: ${display}`);
+    }
     if (filters.from || filters.to)
       parts.push(`Tanggal: ${filters.from || "—"} s/d ${filters.to || "—"}`);
     return parts.length ? parts.join(" • ") : "Tanpa filter";

@@ -54,7 +54,7 @@ export function ManualOrderDialog({
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "midtrans">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "Online">("cash");
   const [customerName, setCustomerName] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -499,18 +499,18 @@ export function ManualOrderDialog({
                       <p className="text-xs text-muted-foreground">Bayar di kasir</p>
                     </button>
                     <button
-                      onClick={() => setPaymentMethod("midtrans")}
+                      onClick={() => setPaymentMethod("Online")}
                       className={`p-4 rounded-xl border-2 transition-all ${
-                        paymentMethod === "midtrans"
+                        paymentMethod === "Online"
                           ? "bg-blue-50 border-blue-500"
                           : "border-border hover:border-blue-300"
                       }`}
                     >
                       <CreditCard className={`w-8 h-8 mx-auto mb-2 ${
-                        paymentMethod === "midtrans" ? "text-blue-700" : "text-muted-foreground"
+                        paymentMethod === "Online" ? "text-blue-700" : "text-muted-foreground"
                       }`} />
                       <p className="font-semibold">QRIS / E-Wallet</p>
-                      <p className="text-xs text-muted-foreground">Via Midtrans</p>
+                      <p className="text-xs text-muted-foreground">Via Online</p>
                     </button>
                   </div>
                 </Card>

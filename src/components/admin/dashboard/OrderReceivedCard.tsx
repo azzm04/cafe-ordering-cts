@@ -46,7 +46,7 @@ export function OrderReceivedCard({
                 Order Baru Masuk
               </h2>
               <p className="text-xs text-muted-foreground">
-                Segera proses pesanan ini
+                
               </p>
             </div>
           </div>
@@ -89,7 +89,7 @@ export function OrderReceivedCard({
                         ) : (
                           <CreditCard className="w-3 h-3 mr-1" />
                         )}
-                        {o.payment_method === "cash" ? "Tunai" : "Midtrans"}
+                        {o.payment_method === "cash" ? "Tunai" : "Online"}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">

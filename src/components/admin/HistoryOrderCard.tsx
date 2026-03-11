@@ -72,7 +72,11 @@ export function HistoryOrderCard({ order, onDelete }: Props) {
           <Badge variant={orderBadgeVariant(order.order_status)}>
             {order.order_status}
           </Badge>
-          <Badge variant="outline">{order.payment_method ?? "midtrans"}</Badge>
+          <Badge variant="outline">{
+            order.payment_method === "online"
+              ? "Online"
+              : order.payment_method ?? "Online"
+          }</Badge>
         </div>
       </div>
 

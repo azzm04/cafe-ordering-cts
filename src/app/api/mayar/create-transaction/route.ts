@@ -18,7 +18,7 @@ type Body = {
   voucherCode?: string;
 };
 
-//  Helpers
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateOrderNumber() {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -41,7 +41,7 @@ function errMsg(err: unknown): string {
   try { return JSON.stringify(err); } catch { return "Unknown error"; }
 }
 
-//  POST /api/mayar/create-transaction 
+// ─── POST /api/mayar/create-transaction ───────────────────────────────────────
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
@@ -154,6 +154,22 @@ export async function POST(req: Request) {
     if (itemsErr)
       return json({ message: itemsErr.message }, { status: 500 });
 
+    // 5b. Kurangi stok inventory
+    // Stok dikurangi saat order dibuat (bukan saat payment confirmed)
+    // Jika payment failed/expired → stok dikembalikan via rollback di bawah
+    try {
+      for (const item of body.items) {
+        await supabaseAdmin.rpc("decrement_stock", {
+          menu_id: item.menu_item_id,
+          qty: item.quantity,
+        });
+      }
+      console.log(`[create-transaction] Stock decremented for order ${orderNumber}`);
+    } catch (stockErr) {
+      // Jangan gagalkan order — stok bisa dikoreksi manual oleh owner
+      console.error("[create-transaction] Stock decrement failed:", stockErr);
+    }
+
     // 6. Lock meja
     const { error: lockErr } = await supabaseAdmin
       .from("tables")
@@ -178,7 +194,7 @@ export async function POST(req: Request) {
       await supabaseAdmin
         .from("orders")
         .update({
-          mayar_payment_id: mayar.paymentId,        // ← BARU: untuk webhook lookup
+          mayar_payment_id: mayar.paymentId,
           mayar_transaction_id: mayar.transactionId,
           mayar_payment_url: mayar.paymentUrl,
         })
@@ -195,12 +211,23 @@ export async function POST(req: Request) {
         paymentId: mayar.paymentId,
       });
     } catch (mayarErr) {
-      // Rollback: tandai order failed, tapi jangan unlock meja
-      // (order sudah tercatat, kasir bisa handle manual)
+      // Rollback: tandai order failed + kembalikan stok
       await supabaseAdmin
         .from("orders")
         .update({ payment_status: "failed" })
         .eq("id", order.id);
+
+      try {
+        for (const item of body.items) {
+          await supabaseAdmin.rpc("increment_stock", {
+            menu_id: item.menu_item_id,
+            qty: item.quantity,
+          });
+        }
+        console.log(`[create-transaction] Stock restored after Mayar failure for ${orderNumber}`);
+      } catch (restoreErr) {
+        console.error("[create-transaction] Stock restore failed:", restoreErr);
+      }
 
       console.error("[create-transaction] Mayar failed:", mayarErr);
       return json(

@@ -26,7 +26,6 @@ export function PaymentAction({ loading, disabled, method, onPay }: Props) {
             </>
           ) : (
             <>
-              {/* ✅ Ganti "midtrans" → "online" sesuai PaymentMethod terbaru */}
               <span>{method === "online" ? "Bayar via Mayar-ID" : "Buat Pesanan"}</span>
               <CreditCard className="h-4 w-4" />
             </>

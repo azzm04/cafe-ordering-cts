@@ -102,7 +102,14 @@ export async function GET(req: Request) {
   if (q) query = query.ilike("order_number", `%${q}%`);
   if (paymentStatus) query = query.eq("payment_status", paymentStatus);
   if (orderStatus) query = query.eq("order_status", orderStatus);
-  if (paymentMethod) query = query.eq("payment_method", paymentMethod);
+  if (paymentMethod) {
+    // older orders may have stored "midtrans" as method, treat them as online
+    if (paymentMethod === "online") {
+      query = query.in("payment_method", ["online", "midtrans"]);
+    } else {
+      query = query.eq("payment_method", paymentMethod);
+    }
+  }
 
   if (useTableFilter) {
     query = query.eq("tables.table_number", Number(tableStr));
@@ -119,6 +126,9 @@ export async function GET(req: Request) {
 
   const items = rows.map((r) => ({
     ...r,
+    // normalize old "midtrans" values to "online" for consistency
+    payment_method:
+      r.payment_method === "midtrans" ? "online" : r.payment_method,
     tables: pickTable(r.tables),
   }));
 

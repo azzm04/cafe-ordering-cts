@@ -29,7 +29,7 @@ export interface ManualOrderPayload {
   table_id: string;
   table_number: number;
   customer_name: string;
-  payment_method: "cash" | "midtrans";
+  payment_method: "cash" | "online";
   notes: string;
   items: {
     menu_id: string;

@@ -154,7 +154,7 @@ export function HistoryFilters({
             <SelectContent>
               <SelectItem value="all">Semua Metode</SelectItem>
               <SelectItem value="cash">Tunai (Cash)</SelectItem>
-              <SelectItem value="midtrans">Digital / QRIS</SelectItem>
+              <SelectItem value="online">Digital / QRIS</SelectItem>
             </SelectContent>
           </Select>
         </div>

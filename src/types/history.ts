@@ -1,6 +1,6 @@
 export type PaymentStatus = "pending" | "paid" | "failed" | "expired";
 export type OrderStatus = "received" | "served" | "completed";
-export type PaymentMethod = "cash" | "qris";
+export type PaymentMethod = "cash" | "online";
 
 export type HistoryOrderRow = {
   id: string;
