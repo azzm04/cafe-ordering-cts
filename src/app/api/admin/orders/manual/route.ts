@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
-import { nanoid } from "nanoid";
 import { createMayarPayment } from "@/lib/mayar";
 
 interface OrderItemPayload {
