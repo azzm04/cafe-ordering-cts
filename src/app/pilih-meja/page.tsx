@@ -60,7 +60,9 @@ export default function PilihMejaPage() {
     void loadTables();
   }, [loadTables]);
 
-  const availableCount = tables.filter((t) => t.status === "tersedia").length;
+  const availableCount = tables.filter(
+  (t) => t.status === "tersedia" || t.status === "available"
+).length;
 
   return (
     <main className="relative min-h-screen w-full overflow-x-hidden">
