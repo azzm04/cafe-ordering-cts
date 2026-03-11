@@ -91,7 +91,7 @@ Pembayaran online menggunakan **Mayar.ID** (production). Untuk keperluan testing
 | Styling | Tailwind CSS + shadcn/ui |
 | Database | Supabase (PostgreSQL) |
 | Auth | Custom PIN-based session |
-| Payment | Mayar.ID (production) |
+| Payment | Mayar.ID (Sandbox) |
 | Deploy | Vercel |
 
 ---
