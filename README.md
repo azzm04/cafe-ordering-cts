@@ -1,15 +1,15 @@
 # ☕ Coklat Tepi Sawah — Sistem Pemesanan Restoran
 
-> Aplikasi pemesanan makanan berbasis web untuk restoran **Coklat Tepi Sawah**.  
+> Aplikasi pemesanan makanan berbasis web untuk Angkringan **Coklat Tepi Sawah**.  
 > Pelanggan dapat memesan langsung dari meja tanpa mengunduh aplikasi apapun.
 
 🔗 **Live Demo:** [cafe-ordering-cts.vercel.app](https://cafe-ordering-cts.vercel.app)
 
 ---
 
-## 🧪 Panduan Testing untuk Panitia
+## Panduan Testing
 
-### Akses Login Staff
+### Akses Login Karyawan
 
 | Role  | URL Login | PIN |
 |-------|-----------|-----|
@@ -18,7 +18,7 @@
 
 ---
 
-## 🪑 Alur 1 — Sebagai Pelanggan (Self-Order)
+## Alur 1 — Sebagai Pelanggan (Self-Order)
 
 Simulasikan pengalaman pelanggan yang memesan langsung dari meja.
 
@@ -30,11 +30,10 @@ Simulasikan pengalaman pelanggan yang memesan langsung dari meja.
 4. Tambahkan item ke keranjang — bisa tambahkan **catatan khusus** per item
 5. Buka keranjang → klik **Checkout**
 6. Pilih metode pembayaran:
-   - **💵 Tunai** → pesanan langsung masuk ke kasir, bayar di tempat
-   - **📱 Online (QRIS)** → diarahkan ke halaman pembayaran Mayar.ID, scan QR
+   - **Tunai** → pesanan langsung masuk ke kasir, bayar di tempat
+   - **Online (QRIS)** → diarahkan ke halaman pembayaran Mayar.ID, scan QR
 7. Setelah pembayaran berhasil → halaman nota otomatis berubah menjadi **"Pesanan Diterima"**
 
-> 💡 **Tip testing:** Gunakan meja 1–3 untuk pelanggan online, meja 4–6 untuk pelanggan tunai agar alur kasir lebih terlihat.
 
 ---
 
@@ -47,17 +46,15 @@ Login ke dashboard kasir untuk memproses pesanan yang masuk.
 
 **Yang bisa dilakukan:**
 
-- 📋 **Monitor pesanan real-time** — dashboard auto-refresh setiap 5 detik
-- ✅ **Konfirmasi pembayaran tunai** — klik tombol konfirmasi pada pesanan cash pending
-- 🍳 **Update status dapur** — alur: `Diterima → Diproses → Disajikan → Selesai`
-- 🏷️ **Terapkan voucher** — masukkan kode promo saat checkout pelanggan memintanya
-- 🪑 **Manual Order** — buat pesanan langsung dari dashboard untuk pelanggan yang tidak menggunakan HP
-
-> 💡 **Tip testing:** Buka dua tab — satu tab sebagai pelanggan (buat pesanan), satu tab sebagai kasir (pantau pesanan masuk secara real-time).
+- **Monitor pesanan real-time** — dashboard auto-refresh setiap 5 detik
+- **Konfirmasi pembayaran tunai** — klik tombol konfirmasi pada pesanan cash pending
+- **Update status dapur** — alur: `Diterima → Diproses → Disajikan → Selesai`
+- **Terapkan voucher** — masukkan kode promo saat checkout pelanggan memintanya
+- **Manual Order** — buat pesanan langsung dari dashboard untuk pelanggan yang tidak menggunakan HP
 
 ---
 
-## 👑 Alur 3 — Sebagai Owner
+## Alur 3 — Sebagai Owner
 
 Login ke dashboard owner untuk manajemen penuh restoran.
 
@@ -68,11 +65,11 @@ Login ke dashboard owner untuk manajemen penuh restoran.
 
 | Fitur | Deskripsi |
 |-------|-----------|
-| 📊 **Laporan Penjualan** | Grafik pendapatan harian, produk terlaris, total transaksi |
-| 🍽️ **Kelola Menu** | Tambah, edit, nonaktifkan item menu beserta harga dan stok |
-| 🏷️ **Kelola Voucher** | Buat kode diskon persentase atau nominal dengan batas minimum order |
-| 🪑 **Manajemen Meja** | Atur jumlah meja, ubah status meja secara manual |
-| 👤 **Kelola Staff** | Tambah atau hapus akun kasir |
+| **Laporan Penjualan** | Grafik pendapatan harian, produk terlaris, total transaksi |
+| **Kelola Menu** | Tambah, edit, nonaktifkan item menu beserta harga dan stok |
+| **Kelola Voucher** | Buat kode diskon persentase atau nominal dengan batas minimum order |
+| **Manajemen Meja** | Atur jumlah meja, ubah status meja secara manual |
+| **Kelola Staff** | Tambah atau hapus akun kasir |
 
 ---
 
@@ -94,7 +91,7 @@ Pembayaran online menggunakan **Mayar.ID** (production). Untuk keperluan testing
 | Styling | Tailwind CSS + shadcn/ui |
 | Database | Supabase (PostgreSQL) |
 | Auth | Custom PIN-based session |
-| Payment | Mayar.ID (production) |
+| Payment | Mayar.ID (Sandbox) |
 | Deploy | Vercel |
 
 ---
@@ -122,4 +119,3 @@ Pembayaran online menggunakan **Mayar.ID** (production). Untuk keperluan testing
 
 ---
 
-*Dibuat dengan ❤️ oleh Azzam Syaiful — Coklat Tepi Sawah © 2026*
