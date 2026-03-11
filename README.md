@@ -1,6 +1,6 @@
 # ☕ Coklat Tepi Sawah — Sistem Pemesanan Restoran
 
-> Aplikasi pemesanan makanan berbasis web untuk restoran **Coklat Tepi Sawah**.  
+> Aplikasi pemesanan makanan berbasis web untuk Angkringan **Coklat Tepi Sawah**.  
 > Pelanggan dapat memesan langsung dari meja tanpa mengunduh aplikasi apapun.
 
 🔗 **Live Demo:** [cafe-ordering-cts.vercel.app](https://cafe-ordering-cts.vercel.app)
