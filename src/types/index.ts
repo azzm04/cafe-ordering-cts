@@ -14,14 +14,21 @@ export interface MenuItem {
   image_url?: string;
   is_available: boolean;
   created_at: string;
-  variant_group?: string | null; 
+  variant_group?: string | null;
 }
 
 export interface Table {
   id: string;
   table_number: number;
-  status: "tersedia" | "terisi" | "dipesan"; 
-  created_at: string;
+  // Support bahasa Indonesia (tersedia/terisi/dipesan) dan Inggris (available/occupied/reserved)
+  status:
+    | "tersedia"
+    | "terisi"
+    | "dipesan"
+    | "available"
+    | "occupied"
+    | "reserved";
+  created_at?: string;
 }
 
 export interface Order {
@@ -33,11 +40,13 @@ export interface Order {
   payment_method?: string;
   midtrans_order_id?: string;
   midtrans_transaction_id?: string;
+  mayar_payment_id?: string;
+  mayar_transaction_id?: string;
+  mayar_payment_url?: string;
   order_status: "received" | "served" | "completed";
   created_at: string;
   completed_at?: string;
 }
-
 
 export interface OrderItem {
   id: string;
@@ -48,5 +57,3 @@ export interface OrderItem {
   subtotal: number;
   notes?: string;
 }
-
-

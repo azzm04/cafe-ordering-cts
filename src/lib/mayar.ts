@@ -11,7 +11,7 @@ import { createHmac } from "crypto";
 // ─── Env ────────────────────────────────────────────────────────────────────
 const API_KEY = process.env.MAYAR_API_KEY ?? "";
 const API_SECRET = process.env.MAYAR_API_SECRET ?? "";
-// Contoh nilai: https://api.mayar.club  (TANPA /hl/v1 dan TANPA trailing slash)
+// Contoh nilai: https://api.mayar.id  (TANPA /hl/v1 dan TANPA trailing slash)
 const BASE = (process.env.MAYAR_API_URL ?? "https://api.mayar.club").replace(/\/$/, "");
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -24,8 +24,9 @@ export interface CreatePaymentParams {
 }
 
 export interface CreatePaymentResult {
-  transactionId: string; // id dari Mayar
-  paymentUrl: string;    // link checkout Mayar
+  paymentId: string;     // data.id — ID payment link, dipakai webhook untuk lookup order
+  transactionId: string; // data.transaction_id — ID transaksi internal Mayar
+  paymentUrl: string;    // data.link — URL checkout Mayar
 }
 
 export type PaymentStatus =
@@ -50,10 +51,10 @@ interface MayarError {
 }
 
 interface MayarCreateData {
-  id: string;
-  transaction_id: string;
-  transactionId: string;
-  link: string;
+  id: string;             // ID payment link
+  transaction_id: string; // ID transaksi (snake_case)
+  transactionId: string;  // ID transaksi (camelCase — fallback)
+  link: string;           // URL checkout
 }
 
 interface MayarCreateResponse extends MayarError {
@@ -136,19 +137,19 @@ export async function createMayarPayment(
     throw new Error(`Mayar error: ${extractError(json, status)}`);
   }
 
-  const link = json.data?.link;
-  const id = json.data?.transaction_id ?? json.data?.transactionId ?? json.data?.id;
+  // paymentId   = data.id           → ID unik payment link (yang Mayar kirim di webhook)
+  // transactionId = data.transaction_id → ID transaksi internal Mayar
+  const paymentId = json.data?.id;
+  const transactionId = json.data?.transaction_id ?? json.data?.transactionId;
+  const paymentUrl = json.data?.link;
 
-  if (!link || !id) {
+  if (!paymentId || !transactionId || !paymentUrl) {
     throw new Error(`Mayar: response tidak lengkap — ${JSON.stringify(json)}`);
   }
 
-  // Fix sandbox: link menggunakan mayar.shop, tapi sandbox ada di mayar.club
-  // const isSandbox = (process.env.MAYAR_API_URL ?? "").includes("mayar.club");
-  // const paymentUrl = isSandbox ? link.replace("mayar.shop", "mayar.club") : link;
+  console.log(`[Mayar] paymentId: ${paymentId} | transactionId: ${transactionId}`);
 
-  return { transactionId: id, paymentUrl: link };
-
+  return { paymentId, transactionId, paymentUrl };
 }
 
 // ─── Check Status ─────────────────────────────────────────────────────────────
@@ -183,8 +184,6 @@ export function verifyMayarSignature(
     console.error("[Mayar] MAYAR_API_SECRET tidak di-set");
     return false;
   }
-  const hash = createHmac("sha256", API_SECRET)
-    .update(rawBody)
-    .digest("hex");
-  return hash === signature;
+  // Mayar mengirim Webhook Token langsung sebagai nilai header x-mayar-signature
+  return signature === API_SECRET;
 }

@@ -43,9 +43,7 @@ export function NotaAutoRefresh({
 }: Props) {
   const router = useRouter();
 
-  const [lastCheck, setLastCheck] = useState<string>(() =>
-    formatTimeHHmmss(new Date())
-  );
+  const [lastCheck, setLastCheck] = useState<string>("--:--:--");
   
   const [isStopped, setIsStopped] = useState(() => 
     isFinal(initialPaymentStatus, initialFulfillmentStatus)

@@ -18,7 +18,7 @@ type Body = {
   voucherCode?: string;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+//  Helpers
 function generateOrderNumber() {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -41,7 +41,7 @@ function errMsg(err: unknown): string {
   try { return JSON.stringify(err); } catch { return "Unknown error"; }
 }
 
-// ─── POST /api/mayar/create-transaction ───────────────────────────────────────
+//  POST /api/mayar/create-transaction 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
@@ -174,22 +174,29 @@ export async function POST(req: Request) {
         redirectUrl: `${appUrl}/nota/${order.order_number}`,
       });
 
-      // 8. Simpan transaction id & payment url
+      // 8. Simpan semua ID Mayar ke order
       await supabaseAdmin
         .from("orders")
         .update({
+          mayar_payment_id: mayar.paymentId,        // ← BARU: untuk webhook lookup
           mayar_transaction_id: mayar.transactionId,
           mayar_payment_url: mayar.paymentUrl,
         })
         .eq("id", order.id);
 
+      console.log(
+        `[create-transaction] Order ${order.order_number} | mayar_payment_id: ${mayar.paymentId} | transactionId: ${mayar.transactionId}`
+      );
+
       return json({
         orderNumber: order.order_number,
         paymentUrl: mayar.paymentUrl,
         transactionId: mayar.transactionId,
+        paymentId: mayar.paymentId,
       });
     } catch (mayarErr) {
-      // Rollback: tandai order failed
+      // Rollback: tandai order failed, tapi jangan unlock meja
+      // (order sudah tercatat, kasir bisa handle manual)
       await supabaseAdmin
         .from("orders")
         .update({ payment_status: "failed" })
