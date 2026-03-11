@@ -1,40 +1,37 @@
 "use client";
 
+// src/hooks/usePaymentLogic.ts
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useCartStore } from "@/store/cartStore";
-import { useMidtransSnap } from "@/hooks/useMidtransSnap";
-import { useOrder } from "@/hooks/useOrder";
 
-export type PaymentMethod = "midtrans" | "cash";
+export type PaymentMethod = "online" | "cash";
 
-// 1. Definisikan tipe response API secara eksplisit
+interface MayarApiResponse {
+  message?: string;
+  orderNumber?: string;
+  paymentUrl?: string;
+  transactionId?: string;
+}
+
 interface CashApiResponse {
   message?: string;
-  order?: {
-    order_number: string;
-  };
-  // Fallback support jika format response berbeda
-  orderNumber?: string; 
+  order?: { order_number: string };
+  orderNumber?: string;
 }
 
 export function usePaymentLogic() {
   const router = useRouter();
-  const { snapReady } = useMidtransSnap();
-  const { createTransaction } = useOrder();
 
-  // Store Data
   const items = useCartStore((s) => s.items);
   const tableNumber = useCartStore((s) => s.tableNumber);
   const clearCart = useCartStore((s) => s.clearCart);
   const total = useCartStore((s) => s.getTotalAmount());
 
-  // Local State
-  const [method, setMethod] = useState<PaymentMethod>("midtrans");
+  const [method, setMethod] = useState<PaymentMethod>("online");
   const [loading, setLoading] = useState(false);
 
-  // Payload Preparation
   const payloadItems = useMemo(
     () =>
       items.map((it) => ({
@@ -47,79 +44,71 @@ export function usePaymentLogic() {
     [items]
   );
 
-  // Actions
   const handleBack = () => router.back();
 
-  const processMidtrans = async (voucherCode?: string) => {
-    if (!snapReady)
-      throw new Error("Midtrans Snap belum siap. Refresh halaman.");
-    if (items.length === 0) throw new Error("Keranjang kosong.");
-    if (!tableNumber) throw new Error("Nomor meja hilang.");
+  // ─── Mayar (online) ────────────────────────────────────────────────────────
+  const processMayar = async (voucherCode?: string) => {
+    if (!items.length) throw new Error("Keranjang kosong.");
+    if (!tableNumber) throw new Error("Nomor meja tidak ditemukan.");
 
-    const { orderNumber, snapToken } = await createTransaction({
-      tableNumber,
-      items: payloadItems,
-      voucherCode,
+    const res = await fetch("/api/mayar/create-transaction", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tableNumber, items: payloadItems, voucherCode }),
     });
 
-    if (window.snap) {
-      window.snap.pay(snapToken, {
-        onSuccess: () => {
-          clearCart();
-          router.push(`/nota/${orderNumber}`);
-        },
-        onPending: () => router.push(`/nota/${orderNumber}`),
-        onError: () => router.push(`/nota/${orderNumber}`),
-        onClose: () => router.push(`/nota/${orderNumber}`)
-      });
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      throw new Error("Server error: response bukan JSON.");
     }
+
+    const data = (await res.json()) as MayarApiResponse;
+
+    if (!res.ok) {
+      throw new Error(data.message ?? "Gagal membuat transaksi.");
+    }
+
+    if (!data.paymentUrl) {
+      throw new Error("Payment URL tidak diterima dari server.");
+    }
+
+    clearCart();
+    // Redirect ke halaman checkout Mayar
+    window.location.href = data.paymentUrl;
   };
 
+  // ─── Cash ──────────────────────────────────────────────────────────────────
   const processCash = async (voucherCode?: string) => {
-    if (items.length === 0) throw new Error("Keranjang kosong.");
-    if (!tableNumber) throw new Error("Nomor meja hilang.");
+    if (!items.length) throw new Error("Keranjang kosong.");
+    if (!tableNumber) throw new Error("Nomor meja tidak ditemukan.");
 
     const res = await fetch("/api/orders/cash", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        tableNumber,
-        items: payloadItems,
-        voucherCode,
-      }),
+      body: JSON.stringify({ tableNumber, items: payloadItems, voucherCode }),
     });
 
-    // 2. Parsing JSON dengan Type Assertion (bukan any)
-    const json = (await res.json()) as CashApiResponse;
+    const data = (await res.json()) as CashApiResponse;
 
     if (!res.ok) {
-      throw new Error(json.message || "Gagal membuat order cash");
+      throw new Error(data.message ?? "Gagal membuat order cash.");
     }
 
-    // 3. Ambil data dengan type safe
-    const orderNumber = json.order?.order_number || json.orderNumber;
-
-    if (!orderNumber) throw new Error("Invalid response: Order Number missing");
+    const orderNumber = data.order?.order_number ?? data.orderNumber;
+    if (!orderNumber) throw new Error("Order number tidak diterima.");
 
     clearCart();
     router.push(`/nota/${orderNumber}`);
   };
 
+  // ─── Main handler ──────────────────────────────────────────────────────────
   const handlePay = async (voucherCode?: string) => {
     setLoading(true);
     try {
-      if (method === "midtrans") await processMidtrans(voucherCode);
+      if (method === "online") await processMayar(voucherCode);
       else await processCash(voucherCode);
-    } catch (e: unknown) {
-      let errorMessage = "Terjadi kesalahan";
-
-      if (e instanceof Error) {
-        errorMessage = e.message;
-      } else if (typeof e === "string") {
-        errorMessage = e;
-      }
-
-      toast.error(errorMessage);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Terjadi kesalahan.");
     } finally {
       setLoading(false);
     }
@@ -132,7 +121,6 @@ export function usePaymentLogic() {
     method,
     setMethod,
     loading,
-    snapReady,
     handleBack,
     handlePay,
   };

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { nanoid } from "nanoid";
+import { createMayarPayment } from "@/lib/mayar";
 
 interface OrderItemPayload {
   menu_id: string;
@@ -13,71 +14,71 @@ interface ManualOrderPayload {
   table_id: string;
   table_number: number;
   customer_name?: string;
-  payment_method: "cash" | "midtrans";
+  payment_method: "cash" | "online";
   items: OrderItemPayload[];
 }
 
 function generateOrderNumber(): string {
-  const date = new Date();
-  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, "");
-  const random = nanoid(6).toUpperCase();
-  return `ORD-${dateStr}-${random}`;
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
+  return `CTS-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}-${rand}`;
 }
 
-async function createMidtransTransaction(orderNumber: string, amount: number, customerName: string) {
-  const serverKey = process.env.MIDTRANS_SERVER_KEY;
-  const isProduction = process.env.MIDTRANS_IS_PRODUCTION === "true";
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  
-  if (!serverKey) {
-    throw new Error("MIDTRANS_SERVER_KEY not configured");
-  }
-
-  const snapUrl = isProduction
-    ? "https://app.midtrans.com/snap/v1/transactions"
-    : "https://app.sandbox.midtrans.com/snap/v1/transactions";
-
-  const authString = Buffer.from(serverKey + ":").toString("base64");
-
-  const payload = {
-    transaction_details: {
-      order_id: orderNumber,
-      gross_amount: amount,
-    },
-    customer_details: {
-      first_name: customerName || "Customer",
-    },
-    enabled_payments: ["qris", "gopay", "shopeepay", "other_qris"],
-    callbacks: {
-      finish: `${baseUrl}/nota/${orderNumber}`,
-    },
-  };
-
-  const response = await fetch(snapUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Basic ${authString}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Midtrans API error: ${errorText}`);
-  }
-
-  const data = await response.json();
-  return {
-    token: data.token,
-    redirect_url: data.redirect_url,
-  };
-}
+// async function createMidtransTransaction(orderNumber: string, amount: number, customerName: string) {
+//   const serverKey = process.env.MIDTRANS_SERVER_KEY;
+//   const isProduction = process.env.MIDTRANS_IS_PRODUCTION === "true";
+//   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+//
+//   if (!serverKey) {
+//     throw new Error("MIDTRANS_SERVER_KEY not configured");
+//   }
+//
+//   const snapUrl = isProduction
+//     ? "https://app.midtrans.com/snap/v1/transactions"
+//     : "https://app.sandbox.midtrans.com/snap/v1/transactions";
+//
+//   const authString = Buffer.from(serverKey + ":").toString("base64");
+//
+//   const payload = {
+//     transaction_details: {
+//       order_id: orderNumber,
+//       gross_amount: amount,
+//     },
+//     customer_details: {
+//       first_name: customerName || "Customer",
+//     },
+//     enabled_payments: ["qris", "gopay", "shopeepay", "other_qris"],
+//     callbacks: {
+//       finish: `${baseUrl}/nota/${orderNumber}`,
+//     },
+//   };
+//
+//   const response = await fetch(snapUrl, {
+//     method: "POST",
+//     headers: {
+//       "Content-Type": "application/json",
+//       Authorization: `Basic ${authString}`,
+//     },
+//     body: JSON.stringify(payload),
+//   });
+//
+//   if (!response.ok) {
+//     const errorText = await response.text();
+//     throw new Error(`Midtrans API error: ${errorText}`);
+//   }
+//
+//   const data = await response.json();
+//   return {
+//     token: data.token,
+//     redirect_url: data.redirect_url,
+//   };
+// }
 
 export async function POST(req: NextRequest) {
   try {
     const supabase = supabaseServer;
-    
+
     // Verify admin session
     const adminCookie = req.cookies.get("cts_admin")?.value;
     if (!adminCookie) {
@@ -86,7 +87,7 @@ export async function POST(req: NextRequest) {
 
     const bodyUnknown = await req.json();
     const body = bodyUnknown as ManualOrderPayload;
-    
+
     if (!body.table_id || !body.items || body.items.length === 0) {
       return NextResponse.json(
         { message: "Table dan items wajib diisi" },
@@ -108,11 +109,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // --- FIX 1: LOGIKA PENGECEKAN BAHASA INDONESIA ---
-    // Kita cek apakah statusnya "tersedia". 
-    // Kita juga izinkan "available" jaga-jaga jika ada data lama yang belum terupdate.
     const isTableAvailable = table.status === "tersedia" || table.status === "available";
-
     if (!isTableAvailable) {
       return NextResponse.json(
         { message: `Meja ${table.table_number} sudah terisi/dipesan, pilih meja lain` },
@@ -129,15 +126,12 @@ export async function POST(req: NextRequest) {
     // Generate order number
     const orderNumber = generateOrderNumber();
 
-    // Determine payment status
-    const paymentStatus = "pending";
-
-    // Create order object
+    // Create base order object
     const orderInsertData: Record<string, unknown> = {
       order_number: orderNumber,
       table_id: body.table_id,
       payment_method: body.payment_method,
-      payment_status: paymentStatus,
+      payment_status: "pending",
       fulfillment_status: "received",
       order_status: "received",
       total_amount: totalAmount,
@@ -145,30 +139,58 @@ export async function POST(req: NextRequest) {
       is_manual_order: true,
     };
 
-    // If Midtrans, generate payment link BEFORE creating order
-    let midtransData: { token: string; redirect_url: string } | null = null;
-    
-    if (body.payment_method === "midtrans") {
-      try {
-        midtransData = await createMidtransTransaction(
-          orderNumber,
-          totalAmount,
-          body.customer_name || `Meja ${body.table_number}`
-        );
+    let mayarPaymentUrl: string | null = null;
 
-        orderInsertData["midtrans_snap_token"] = midtransData.token;
-        orderInsertData["midtrans_redirect_url"] = midtransData.redirect_url;
-      } catch (midtransError) {
-        console.error("Midtrans error:", midtransError);
+    if (body.payment_method === "online") {
+      try {
+        const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+
+        const mayar = await createMayarPayment({
+          orderNumber,
+          amount: totalAmount,
+          buyerName: body.customer_name || `Meja ${body.table_number}`,
+          buyerEmail: "customer@order.local",
+          redirectUrl: `${appUrl}/nota/${orderNumber}`,
+        });
+
+        mayarPaymentUrl = mayar.paymentUrl;
+        orderInsertData["mayar_payment_id"]    = mayar.paymentId;
+        orderInsertData["mayar_transaction_id"] = mayar.transactionId;
+        orderInsertData["mayar_payment_url"]    = mayar.paymentUrl;
+
+        console.log(`[manual-order] Mayar payment created for ${orderNumber} | paymentId: ${mayar.paymentId}`);
+      } catch (mayarErr) {
+        console.error("[manual-order] Mayar error:", mayarErr);
         return NextResponse.json(
-          { 
-            message: "Gagal membuat payment link",
-            error: midtransError instanceof Error ? midtransError.message : "Unknown error"
+          {
+            message: "Gagal membuat payment link Mayar",
+            error: mayarErr instanceof Error ? mayarErr.message : "Unknown error",
           },
           { status: 500 }
         );
       }
     }
+
+    // if (body.payment_method === "midtrans") {
+    //   try {
+    //     midtransData = await createMidtransTransaction(
+    //       orderNumber,
+    //       totalAmount,
+    //       body.customer_name || `Meja ${body.table_number}`
+    //     );
+    //     orderInsertData["midtrans_snap_token"]    = midtransData.token;
+    //     orderInsertData["midtrans_redirect_url"]  = midtransData.redirect_url;
+    //   } catch (midtransError) {
+    //     console.error("Midtrans error:", midtransError);
+    //     return NextResponse.json(
+    //       {
+    //         message: "Gagal membuat payment link",
+    //         error: midtransError instanceof Error ? midtransError.message : "Unknown error",
+    //       },
+    //       { status: 500 }
+    //     );
+    //   }
+    // }
 
     // Create order
     const { data: order, error: orderError } = await supabase
@@ -177,20 +199,10 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (orderError) {
-      console.error("Order creation error:", orderError);
+    if (orderError || !order) {
+      console.error("[manual-order] Order creation error:", orderError);
       return NextResponse.json(
-        { 
-          message: "Gagal membuat order", 
-          error: orderError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    if (!order) {
-      return NextResponse.json(
-        { message: "Order created but no data returned" },
+        { message: "Gagal membuat order", error: orderError?.message },
         { status: 500 }
       );
     }
@@ -210,23 +222,19 @@ export async function POST(req: NextRequest) {
       .insert(orderItems);
 
     if (itemsError) {
-      console.error("Order items error:", itemsError);
+      console.error("[manual-order] Order items error:", itemsError);
       // Rollback: delete the order
       await supabase.from("orders").delete().eq("id", order.id);
       return NextResponse.json(
-        { 
-          message: "Gagal menyimpan item order",
-          error: itemsError.message 
-        },
+        { message: "Gagal menyimpan item order", error: itemsError.message },
         { status: 500 }
       );
     }
 
-    // --- FIX 2: UPDATE STATUS MEJA KE BAHASA INDONESIA ---
-    // Saat order dibuat, meja harus menjadi "terisi" (bukan "occupied")
+    // Lock meja
     await supabase
       .from("tables")
-      .update({ status: "terisi" }) 
+      .update({ status: "terisi" })
       .eq("id", body.table_id);
 
     // Update stock for each menu item
@@ -237,32 +245,36 @@ export async function POST(req: NextRequest) {
           qty: item.quantity,
         });
       } catch (stockError) {
-        console.error("Stock update error:", stockError);
+        console.error("[manual-order] Stock update error:", stockError);
       }
     }
 
-    // Return response based on payment method
+    // Return response
     const response: Record<string, unknown> = {
       message: "Order berhasil dibuat",
       order_number: orderNumber,
       order_id: order.id,
       total_amount: totalAmount,
-      payment_status: paymentStatus,
+      payment_status: "pending",
       payment_method: body.payment_method,
     };
 
-    if (body.payment_method === "midtrans" && midtransData) {
-      response.midtrans_token = midtransData.token;
-      response.midtrans_redirect_url = midtransData.redirect_url;
+    if (body.payment_method === "online" && mayarPaymentUrl) {
+      response.payment_url = mayarPaymentUrl;
     }
+
+    // if (body.payment_method === "midtrans" && midtransData) {
+    //   response.midtrans_token        = midtransData.token;
+    //   response.midtrans_redirect_url = midtransData.redirect_url;
+    // }
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("Manual order error:", error);
+    console.error("[manual-order] Error:", error);
     return NextResponse.json(
-      { 
+      {
         message: "Internal server error",
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );

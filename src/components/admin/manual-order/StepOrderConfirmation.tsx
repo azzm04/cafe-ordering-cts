@@ -18,9 +18,7 @@ interface Props {
 export function StepOrderConfirmation({ selectedTable, cart, onBack }: Props) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "midtrans">(
-    "cash",
-  );
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "online">("cash");
 
   const subtotal = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -40,7 +38,7 @@ export function StepOrderConfirmation({ selectedTable, cart, onBack }: Props) {
           menu_id: item.id,
           quantity: item.quantity,
           price: item.price,
-          notes: item.notes || "", // Send notes to API
+          notes: item.notes || "",
         })),
       };
 
@@ -57,38 +55,57 @@ export function StepOrderConfirmation({ selectedTable, cart, onBack }: Props) {
         throw new Error(data.message || "Gagal membuat order");
       }
 
-      // Handle based on payment method
+      // ─── Cash ──────────────────────────────────────────────────────────────
       if (paymentMethod === "cash") {
-        // Cash payment - order created, pending confirmation
-        toast.success(
-          "Order berhasil dibuat! Menunggu konfirmasi pembayaran tunai.",
-        );
+        toast.success("Order berhasil dibuat! Menunggu konfirmasi pembayaran tunai.");
         router.push("/admin/kasir");
-      } else if (paymentMethod === "midtrans") {
-        if (data.midtrans_redirect_url) {
-          toast.success(
-            "Order berhasil dibuat! Redirect ke halaman pembayaran...",
-          );
+
+      // ─── Online (Mayar) ────────────────────────────────────────────────────
+      } else if (paymentMethod === "online") {
+        if (data.payment_url) {
+          toast.success("Order berhasil dibuat! Membuka halaman pembayaran...");
 
           const paymentWindow = window.open(
-            data.midtrans_redirect_url,
+            data.payment_url,
             "_blank",
             "width=600,height=800",
           );
 
           if (paymentWindow) {
-            toast.info("Halaman pembayaran dibuka di tab baru");
+            toast.info("Halaman pembayaran Mayar dibuka di tab baru");
             setTimeout(() => {
               router.push("/admin/kasir");
             }, 1000);
           } else {
             toast.warning("Popup blocked. Redirect di tab ini...");
-            window.location.href = data.midtrans_redirect_url;
+            window.location.href = data.payment_url;
           }
         } else {
-          throw new Error("Payment link not available");
+          throw new Error("Payment link tidak tersedia");
         }
       }
+
+      // ─── Midtrans (dinonaktifkan, diganti Mayar) ───────────────────────────
+      // } else if (paymentMethod === "midtrans") {
+      //   if (data.midtrans_redirect_url) {
+      //     toast.success("Order berhasil dibuat! Redirect ke halaman pembayaran...");
+      //     const paymentWindow = window.open(
+      //       data.midtrans_redirect_url,
+      //       "_blank",
+      //       "width=600,height=800",
+      //     );
+      //     if (paymentWindow) {
+      //       toast.info("Halaman pembayaran dibuka di tab baru");
+      //       setTimeout(() => { router.push("/admin/kasir"); }, 1000);
+      //     } else {
+      //       toast.warning("Popup blocked. Redirect di tab ini...");
+      //       window.location.href = data.midtrans_redirect_url;
+      //     }
+      //   } else {
+      //     throw new Error("Payment link not available");
+      //   }
+      // }
+
     } catch (error) {
       console.error("Submit order error:", error);
       toast.error(
@@ -141,7 +158,6 @@ export function StepOrderConfirmation({ selectedTable, cart, onBack }: Props) {
                   </div>
                 </div>
 
-                {/* Show notes if exists */}
                 {item.notes && (
                   <div className="mt-2 flex items-start gap-2 text-xs bg-amber-50 text-amber-800 p-2 rounded border border-amber-200">
                     <MessageSquare className="w-3 h-3 mt-0.5 flex-shrink-0" />
@@ -186,11 +202,12 @@ export function StepOrderConfirmation({ selectedTable, cart, onBack }: Props) {
               </div>
             </button>
 
+            {/* Online (Mayar) */}
             <button
               type="button"
-              onClick={() => setPaymentMethod("midtrans")}
+              onClick={() => setPaymentMethod("online")}
               className={`p-4 border-2 rounded-lg transition-all ${
-                paymentMethod === "midtrans"
+                paymentMethod === "online"
                   ? "border-amber-600 bg-amber-50 shadow-md"
                   : "border-border hover:border-amber-300 bg-white"
               }`}
@@ -201,6 +218,23 @@ export function StepOrderConfirmation({ selectedTable, cart, onBack }: Props) {
                 Scan untuk bayar
               </div>
             </button>
+
+            {/* Midtrans (dinonaktifkan) */}
+            {/* <button
+              type="button"
+              onClick={() => setPaymentMethod("midtrans")}
+              className={`p-4 border-2 rounded-lg transition-all ${
+                paymentMethod === "midtrans"
+                  ? "border-amber-600 bg-amber-50 shadow-md"
+                  : "border-border hover:border-amber-300 bg-white"
+              }`}
+            >
+              <div className="text-3xl mb-2">📱</div>
+              <div className="font-semibold">QRIS (Midtrans)</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Scan untuk bayar
+              </div>
+            </button> */}
           </div>
         </div>
 
@@ -220,11 +254,11 @@ export function StepOrderConfirmation({ selectedTable, cart, onBack }: Props) {
           ) : (
             <>
               <div className="font-semibold mb-1 text-blue-900">
-                💡 Pembayaran QRIS (Midtrans)
+                💡 Pembayaran QRIS (Mayar)
               </div>
               <div className="text-blue-800">
-                Link pembayaran akan dibuka otomatis. Customer scan QR code
-                untuk membayar. Status order akan otomatis update setelah
+                Link pembayaran Mayar akan dibuka otomatis. Customer scan QR
+                code untuk membayar. Status order akan otomatis update setelah
                 pembayaran berhasil.
               </div>
             </>

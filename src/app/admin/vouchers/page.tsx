@@ -12,12 +12,12 @@ import { NextResponse } from "next/server";
 export default async function VoucherPage() {
   const auth = await requireAdmin();
 
-  if (auth instanceof NextResponse) {
-     return auth; 
+  if (!auth || auth instanceof NextResponse) {
+    redirect("/admin/login");
   }
 
   if (auth.role !== "owner") {
-    redirect("/admin/dashboard"); 
+    redirect("/admin/dashboard");
   }
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import type { Category } from "@/types";
+import type { Category } from "@/types/";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function CategoryTabs({
