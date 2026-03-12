@@ -18,7 +18,7 @@ type Body = {
   voucherCode?: string;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+//  Helpers 
 function generateOrderNumber() {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -45,7 +45,7 @@ function errMsg(err: unknown): string {
   }
 }
 
-// ─── POST /api/mayar/create-transaction ───────────────────────────────────────
+//  POST /api/mayar/create-transaction 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
@@ -166,13 +166,17 @@ export async function POST(req: Request) {
     if (itemsErr) return json({ message: itemsErr.message }, { status: 500 });
 
     // 5b. Kurangi stok inventory
-    // Pakai deductStockForOrder (sama seperti cash order) — berbasis ingredient, bukan kolom stock
     try {
       const { deductStockForOrder } = await import("@/lib/inventory/index");
       await deductStockForOrder(order.id);
+
+      await supabaseAdmin
+        .from("orders")
+        .update({ stock_deducted_at: new Date().toISOString() })
+        .eq("id", order.id);
+
       console.log(`[create-transaction] Stock deducted for order ${orderNumber}`);
     } catch (stockErr) {
-      // Jangan gagalkan order — stok bisa dikoreksi manual oleh owner
       console.error(
         "[create-transaction] Stock deduction failed:",
         stockErr instanceof Error ? stockErr.message : stockErr,
